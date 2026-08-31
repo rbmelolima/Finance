@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
+import { CategoryDistributionChart } from './CategoryDistributionChart'
 import { FixedCostModal } from './FixedCostModal'
 
 interface FixedCostsPageProps {
@@ -221,6 +222,13 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
             </div>
           </div>
         </div>
+
+        {/* Gráfico de Distribuição por Categorias */}
+        {fixedCosts.length > 0 && (
+          <div className="mt-8">
+            <CategoryDistributionChart fixedCosts={fixedCosts} />
+          </div>
+        )}
 
         {/* Barra de Filtros e Busca */}
         <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[#dfe8e1] bg-white p-4 lg:flex-row lg:items-center lg:justify-between">

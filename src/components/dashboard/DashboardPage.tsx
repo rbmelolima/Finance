@@ -7,6 +7,17 @@ interface DashboardPageProps {
   onOpenNewFixedCost: () => void
 }
 
+const CATEGORY_COLORS: string[] = [
+  '#173d2a',
+  '#5d9873',
+  '#2a9d8f',
+  '#e76f51',
+  '#f4a261',
+  '#457b9d',
+  '#7b2cbf',
+  '#d62828',
+]
+
 export function DashboardPage({
   name,
   fixedCosts,
@@ -34,6 +45,27 @@ export function DashboardPage({
 
   const formattedMonthlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(monthlyUSD)
   const formattedYearlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(yearlyUSD)
+
+  // Distribuição rápida de categorias para o Dashboard
+  const categorySummary = (() => {
+    if (fixedCosts.length === 0) return []
+    const totals: Record<string, number> = {}
+    let total = 0
+    fixedCosts.forEach((c) => {
+      const val = c.recurrence === 'yearly' ? c.amount / 12 : c.amount
+      totals[c.category] = (totals[c.category] || 0) + val
+      total += val
+    })
+    return Object.entries(totals)
+      .map(([name, val], idx) => ({
+        name,
+        amount: val,
+        percentage: total > 0 ? (val / total) * 100 : 0,
+        color: CATEGORY_COLORS[idx % CATEGORY_COLORS.length],
+      }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 4)
+  })()
 
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
@@ -127,14 +159,40 @@ export function DashboardPage({
                     </p>
                   )}
                 </div>
-                <p className="mt-3 text-xs text-[#718078]">
-                  {fixedCosts.length} despesa(s) ativa(s).
-                </p>
+
+                {/* Mini barra e categorias */}
+                {categorySummary.length > 0 && (
+                  <div className="mt-4 space-y-2 border-t border-[#edf2ee] pt-3">
+                    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-[#edf2ee]">
+                      {categorySummary.map((c) => (
+                        <div
+                          key={c.name}
+                          style={{
+                            width: `${c.percentage}%`,
+                            backgroundColor: c.color,
+                          }}
+                        />
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-[#718078]">
+                      {categorySummary.map((c) => (
+                        <span key={c.name} className="flex items-center gap-1">
+                          <span
+                            className="size-2 rounded-full"
+                            style={{ backgroundColor: c.color }}
+                          />
+                          {c.name} ({c.percentage.toFixed(0)}%)
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={() => onNavigate('fixed-costs')}
                   className="mt-4 inline-flex items-center text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
                 >
-                  Ver todos os custos →
+                  Ver gráficos e detalhes →
                 </button>
               </div>
             )}

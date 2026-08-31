@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
 import { FixedCostModal } from './FixedCostModal'
 
@@ -14,7 +15,19 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
   const [searchTerm, setSearchTerm] = useState('')
   const [recurrenceFilter, setRecurrenceFilter] = useState<'all' | Recurrence>('all')
   const [currencyFilter, setCurrencyFilter] = useState<'all' | Currency>('all')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [costToDelete, setCostToDelete] = useState<FixedCost | null>(null)
+
+  const availableCategories = useMemo(() => {
+    const allStored = getCategories()
+    const usedInCosts = fixedCosts.map((c) => c.category).filter(Boolean)
+    return Array.from(new Set([...allStored, ...usedInCosts]))
+  }, [fixedCosts])
+
+  // Verifica se existe algum custo em USD
+  const hasUSDCosts = useMemo(() => {
+    return fixedCosts.some((c) => c.currency === 'USD')
+  }, [fixedCosts])
 
   // Cálculos de métricas consolidadas
   const metrics = useMemo(() => {
@@ -40,15 +53,20 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
     })
 
     const totalEquivalentMonthlyBRL = monthlyBRL + yearlyBRL / 12
+    const totalEquivalentYearlyBRL = totalEquivalentMonthlyBRL * 12
+
     const totalEquivalentMonthlyUSD = monthlyUSD + yearlyUSD / 12
+    const totalEquivalentYearlyUSD = totalEquivalentMonthlyUSD * 12
 
     return {
       monthlyBRL,
       yearlyBRL,
       totalEquivalentMonthlyBRL,
+      totalEquivalentYearlyBRL,
       monthlyUSD,
       yearlyUSD,
       totalEquivalentMonthlyUSD,
+      totalEquivalentYearlyUSD,
       totalCount: fixedCosts.length,
     }
   }, [fixedCosts])
@@ -58,14 +76,16 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
     return fixedCosts.filter((cost) => {
       const matchesSearch =
         cost.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (cost.description && cost.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        (cost.description && cost.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (cost.category && cost.category.toLowerCase().includes(searchTerm.toLowerCase()))
 
       const matchesRecurrence = recurrenceFilter === 'all' || cost.recurrence === recurrenceFilter
       const matchesCurrency = currencyFilter === 'all' || cost.currency === currencyFilter
+      const matchesCategory = categoryFilter === 'all' || cost.category === categoryFilter
 
-      return matchesSearch && matchesRecurrence && matchesCurrency
+      return matchesSearch && matchesRecurrence && matchesCurrency && matchesCategory
     })
-  }, [fixedCosts, searchTerm, recurrenceFilter, currencyFilter])
+  }, [fixedCosts, searchTerm, recurrenceFilter, currencyFilter, categoryFilter])
 
   function formatCurrency(amount: number, currency: Currency): string {
     if (currency === 'BRL') {
@@ -104,7 +124,7 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
               Custos Fixos
             </h1>
             <p className="mt-1 text-sm text-[#64736a]">
-              Acompanhe suas assinaturas, contas recorrentes e compromissos periódicos.
+              Acompanhe suas assinaturas, contas essenciais e compromissos recorrentes categorizados.
             </p>
           </div>
 
@@ -118,51 +138,70 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
         </div>
 
         {/* Métricas / Cards de Resumo */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {/* Card BRL */}
+        <div
+          className={`mt-8 grid gap-4 ${
+            hasUSDCosts ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-3'
+          }`}
+        >
+          {/* Card Mensal BRL */}
           <div className="rounded-3xl bg-[#173d2a] p-6 text-white shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#b7d7c5]">
-                Comprometimento Mensal (R$)
+                Custo Mensal
               </span>
               <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-[#b7d7c5]">
-                BRL
+                R$ / mês
               </span>
             </div>
             <p className="mt-4 text-3xl font-bold tracking-tight">
               {formatCurrency(metrics.totalEquivalentMonthlyBRL, 'BRL')}
-              <span className="text-xs font-normal text-[#b7d7c5]"> /mês</span>
             </p>
-            <div className="mt-3 flex items-center gap-3 border-t border-white/10 pt-3 text-xs text-[#b7d7c5]">
-              <span>Mensais: {formatCurrency(metrics.monthlyBRL, 'BRL')}</span>
-              <span>•</span>
-              <span>Anuais: {formatCurrency(metrics.yearlyBRL, 'BRL')}/ano</span>
+            <div className="mt-3 flex items-center gap-2 border-t border-white/10 pt-3 text-xs text-[#b7d7c5]">
+              <span>Mensais diretos: {formatCurrency(metrics.monthlyBRL, 'BRL')}</span>
             </div>
           </div>
 
-          {/* Card USD */}
+          {/* Card Anual (12 Meses) BRL */}
           <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#71917d]">
-                Comprometimento Mensal ($)
+                Custo Anual (12 Meses)
               </span>
-              <span className="rounded-full bg-[#edf5ef] px-2.5 py-0.5 text-xs font-medium text-[#5d9873]">
-                USD
+              <span className="rounded-full bg-[#edf5ef] px-2.5 py-0.5 text-xs font-semibold text-[#5d9873]">
+                12 Meses
               </span>
             </div>
             <p className="mt-4 text-3xl font-bold tracking-tight text-[#173d2a]">
-              {formatCurrency(metrics.totalEquivalentMonthlyUSD, 'USD')}
-              <span className="text-xs font-normal text-[#8a998f]"> /mês</span>
+              {formatCurrency(metrics.totalEquivalentYearlyBRL, 'BRL')}
             </p>
-            <div className="mt-3 flex items-center gap-3 border-t border-[#edf2ee] pt-3 text-xs text-[#718078]">
-              <span>Mensais: {formatCurrency(metrics.monthlyUSD, 'USD')}</span>
-              <span>•</span>
-              <span>Anuais: {formatCurrency(metrics.yearlyUSD, 'USD')}/ano</span>
+            <div className="mt-3 flex items-center gap-2 border-t border-[#edf2ee] pt-3 text-xs text-[#718078]">
+              <span>Projeção anual de custos fixos em R$</span>
             </div>
           </div>
 
+          {/* Card USD Condicional (Só aparece se houver custos em USD) */}
+          {hasUSDCosts && (
+            <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-[#71917d]">
+                  Custos em Dólar ($)
+                </span>
+                <span className="rounded-full bg-[#edf5ef] px-2.5 py-0.5 text-xs font-medium text-[#5d9873]">
+                  USD
+                </span>
+              </div>
+              <p className="mt-4 text-2xl font-bold tracking-tight text-[#173d2a]">
+                {formatCurrency(metrics.totalEquivalentMonthlyUSD, 'USD')}
+                <span className="text-xs font-normal text-[#8a998f]">/mês</span>
+              </p>
+              <div className="mt-3 flex items-center gap-2 border-t border-[#edf2ee] pt-3 text-xs text-[#718078]">
+                <span>Anual: {formatCurrency(metrics.totalEquivalentYearlyUSD, 'USD')}/ano</span>
+              </div>
+            </div>
+          )}
+
           {/* Card Total de Registros */}
-          <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm sm:col-span-2 lg:col-span-1">
+          <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#71917d]">
                 Custos Cadastrados
@@ -184,7 +223,7 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
         </div>
 
         {/* Barra de Filtros e Busca */}
-        <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[#dfe8e1] bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[#dfe8e1] bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative flex-1">
             <svg
               viewBox="0 0 24 24"
@@ -200,12 +239,28 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Buscar por nome ou descrição..."
+              placeholder="Buscar por nome, categoria ou descrição..."
               className="w-full rounded-xl border border-[#e3eae4] bg-[#fbfcfb] py-2 pl-10 pr-4 text-xs text-[#173d2a] outline-none transition placeholder:text-[#a1afa6] focus:border-[#5d9873] focus:bg-white"
             />
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* Filtro por Categoria */}
+            <div className="flex items-center">
+              <select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                className="rounded-xl border border-[#e3eae4] bg-[#fbfcfb] px-3 py-1.5 text-xs font-medium text-[#173d2a] outline-none transition focus:border-[#5d9873] cursor-pointer"
+              >
+                <option value="all">Todas as Categorias</option>
+                {availableCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Filtro Recorrência */}
             <div className="flex rounded-xl border border-[#e3eae4] bg-[#fbfcfb] p-1 text-xs">
               <button
@@ -240,39 +295,41 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
               </button>
             </div>
 
-            {/* Filtro Moeda */}
-            <div className="flex rounded-xl border border-[#e3eae4] bg-[#fbfcfb] p-1 text-xs">
-              <button
-                onClick={() => setCurrencyFilter('all')}
-                className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
-                  currencyFilter === 'all'
-                    ? 'bg-[#173d2a] text-white'
-                    : 'text-[#64736a] hover:text-[#173d2a]'
-                }`}
-              >
-                Todas Moedas
-              </button>
-              <button
-                onClick={() => setCurrencyFilter('BRL')}
-                className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
-                  currencyFilter === 'BRL'
-                    ? 'bg-[#173d2a] text-white'
-                    : 'text-[#64736a] hover:text-[#173d2a]'
-                }`}
-              >
-                R$ (BRL)
-              </button>
-              <button
-                onClick={() => setCurrencyFilter('USD')}
-                className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
-                  currencyFilter === 'USD'
-                    ? 'bg-[#173d2a] text-white'
-                    : 'text-[#64736a] hover:text-[#173d2a]'
-                }`}
-              >
-                $ (USD)
-              </button>
-            </div>
+            {/* Filtro Moeda (Oculta se não houver custos em USD) */}
+            {hasUSDCosts && (
+              <div className="flex rounded-xl border border-[#e3eae4] bg-[#fbfcfb] p-1 text-xs">
+                <button
+                  onClick={() => setCurrencyFilter('all')}
+                  className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
+                    currencyFilter === 'all'
+                      ? 'bg-[#173d2a] text-white'
+                      : 'text-[#64736a] hover:text-[#173d2a]'
+                  }`}
+                >
+                  Moedas
+                </button>
+                <button
+                  onClick={() => setCurrencyFilter('BRL')}
+                  className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
+                    currencyFilter === 'BRL'
+                      ? 'bg-[#173d2a] text-white'
+                      : 'text-[#64736a] hover:text-[#173d2a]'
+                  }`}
+                >
+                  R$
+                </button>
+                <button
+                  onClick={() => setCurrencyFilter('USD')}
+                  className={`rounded-lg px-2.5 py-1 font-medium transition cursor-pointer ${
+                    currencyFilter === 'USD'
+                      ? 'bg-[#173d2a] text-white'
+                      : 'text-[#64736a] hover:text-[#173d2a]'
+                  }`}
+                >
+                  $
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -293,7 +350,7 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
               <p className="mx-auto mt-2 max-w-md text-sm text-[#718078]">
                 {fixedCosts.length === 0
                   ? 'Cadastre suas assinaturas recorrentes, contas essenciais e mensalidades para ter clareza total dos seus gastos fixos.'
-                  : 'Tente alterar os termos de busca ou limpar os filtros de recorrência e moeda.'}
+                  : 'Tente alterar os termos de busca ou limpar os filtros de categoria, recorrência ou moeda.'}
               </p>
               {fixedCosts.length === 0 && (
                 <button
@@ -309,27 +366,34 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
               {filteredCosts.map((cost) => {
                 const monthlyEquivalent =
                   cost.recurrence === 'yearly' ? cost.amount / 12 : cost.amount
+                const yearlyEquivalent =
+                  cost.recurrence === 'monthly' ? cost.amount * 12 : cost.amount
 
                 return (
                   <div
                     key={cost.id}
                     className="group flex flex-col justify-between gap-4 rounded-2xl border border-[#dfe8e1] bg-white p-5 transition hover:border-[#b7d7c5] hover:shadow-md sm:flex-row sm:items-center"
                   >
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <div className="flex flex-wrap items-center gap-2">
                         <h4 className="text-base font-semibold text-[#173d2a]">{cost.name}</h4>
+                        <span className="rounded-full bg-[#edf5ef] px-2.5 py-0.5 text-xs font-semibold text-[#2c6e43]">
+                          {cost.category || 'Outros'}
+                        </span>
                         <span
-                          className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                          className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             cost.recurrence === 'monthly'
-                              ? 'bg-[#e9f4ec] text-[#2c6e43]'
+                              ? 'bg-[#f3f6f4] text-[#64736a]'
                               : 'bg-[#fef6e7] text-[#976011]'
                           }`}
                         >
                           {cost.recurrence === 'monthly' ? 'Mensal' : 'Anual'}
                         </span>
-                        <span className="rounded-full bg-[#f3f6f4] px-2 py-0.5 text-xs font-medium text-[#64736a]">
-                          {cost.currency}
-                        </span>
+                        {hasUSDCosts && (
+                          <span className="rounded-full bg-[#f3f6f4] px-2 py-0.5 text-xs font-medium text-[#64736a]">
+                            {cost.currency}
+                          </span>
+                        )}
                       </div>
                       {cost.description && (
                         <p className="text-xs text-[#718078]">{cost.description}</p>
@@ -344,11 +408,19 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
                             {cost.recurrence === 'monthly' ? '/mês' : '/ano'}
                           </span>
                         </p>
-                        {cost.recurrence === 'yearly' && (
-                          <p className="text-xs font-medium text-[#5d9873]">
-                            ≈ {formatCurrency(monthlyEquivalent, cost.currency)}/mês
-                          </p>
-                        )}
+                        <p className="text-xs text-[#5d9873]">
+                          {cost.recurrence === 'monthly' ? (
+                            <span>
+                              Custo anual (12m):{' '}
+                              <strong>{formatCurrency(yearlyEquivalent, cost.currency)}</strong>
+                            </span>
+                          ) : (
+                            <span>
+                              Equiv. mensal:{' '}
+                              <strong>{formatCurrency(monthlyEquivalent, cost.currency)}/mês</strong>
+                            </span>
+                          )}
+                        </p>
                       </div>
 
                       <div className="flex items-center gap-1.5">
@@ -395,7 +467,9 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
           <div className="w-full max-w-sm rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-xl">
             <h3 className="text-lg font-bold text-[#173d2a]">Confirmar Exclusão</h3>
             <p className="mt-2 text-xs leading-relaxed text-[#718078]">
-              Tem certeza que deseja remover o custo fixo <strong className="text-[#173d2a]">{costToDelete.name}</strong> ({formatCurrency(costToDelete.amount, costToDelete.currency)})? Esta ação não pode ser desfeita.
+              Tem certeza que deseja remover o custo fixo{' '}
+              <strong className="text-[#173d2a]">{costToDelete.name}</strong> (
+              {formatCurrency(costToDelete.amount, costToDelete.currency)})? Esta ação não pode ser desfeita.
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button

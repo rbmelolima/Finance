@@ -13,17 +13,27 @@ export function DashboardPage({
   onNavigate,
   onOpenNewFixedCost,
 }: DashboardPageProps) {
-  // Cálculo rápido dos custos fixos
-  const totalBRL = fixedCosts
+  const hasUSD = fixedCosts.some((c) => c.currency === 'USD')
+
+  // Cálculo dos custos fixos em BRL
+  const monthlyBRL = fixedCosts
     .filter((c) => c.currency === 'BRL')
     .reduce((acc, c) => acc + (c.recurrence === 'monthly' ? c.amount : c.amount / 12), 0)
 
-  const totalUSD = fixedCosts
+  const yearlyBRL = monthlyBRL * 12
+
+  // Cálculo dos custos fixos em USD (se houver)
+  const monthlyUSD = fixedCosts
     .filter((c) => c.currency === 'USD')
     .reduce((acc, c) => acc + (c.recurrence === 'monthly' ? c.amount : c.amount / 12), 0)
 
-  const formattedBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalBRL)
-  const formattedUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(totalUSD)
+  const yearlyUSD = monthlyUSD * 12
+
+  const formattedMonthlyBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyBRL)
+  const formattedYearlyBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(yearlyBRL)
+
+  const formattedMonthlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(monthlyUSD)
+  const formattedYearlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(yearlyUSD)
 
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
@@ -47,7 +57,7 @@ export function DashboardPage({
             <p className="mt-4 text-2xl font-semibold text-[#30483a]">Comece pelo básico</p>
             <p className="mt-3 text-sm leading-6 text-[#718078]">
               {fixedCosts.length > 0
-                ? `Você já possui ${fixedCosts.length} custo(s) fixo(s) registrado(s).`
+                ? `Você possui ${fixedCosts.length} custo(s) fixo(s) totalizando ${formattedYearlyBRL}/ano.`
                 : 'Cadastre suas contas e custos fixos para visualizar seu primeiro snapshot.'}
             </p>
           </article>
@@ -104,21 +114,21 @@ export function DashboardPage({
             ) : (
               <div className="mt-4">
                 <div className="space-y-1">
-                  {totalBRL > 0 && (
-                    <p className="text-2xl font-bold tracking-tight text-[#173d2a]">
-                      {formattedBRL}
-                      <span className="text-xs font-normal text-[#8a998f]"> /mês</span>
-                    </p>
-                  )}
-                  {totalUSD > 0 && (
-                    <p className="text-sm font-semibold text-[#5d9873]">
-                      + {formattedUSD}
-                      <span className="text-xs font-normal text-[#8a998f]"> /mês</span>
+                  <p className="text-2xl font-bold tracking-tight text-[#173d2a]">
+                    {formattedMonthlyBRL}
+                    <span className="text-xs font-normal text-[#8a998f]"> /mês</span>
+                  </p>
+                  <p className="text-xs font-semibold text-[#5d9873]">
+                    Custo anual (12m): {formattedYearlyBRL}
+                  </p>
+                  {hasUSD && monthlyUSD > 0 && (
+                    <p className="pt-1 text-xs font-medium text-[#718078]">
+                      + {formattedMonthlyUSD}/mês ({formattedYearlyUSD}/ano)
                     </p>
                   )}
                 </div>
-                <p className="mt-2 text-xs text-[#718078]">
-                  {fixedCosts.length} despesa(s) recorrente(s) cadastrada(s).
+                <p className="mt-3 text-xs text-[#718078]">
+                  {fixedCosts.length} despesa(s) ativa(s).
                 </p>
                 <button
                   onClick={() => onNavigate('fixed-costs')}

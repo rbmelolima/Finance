@@ -6,6 +6,7 @@ export interface FixedCost {
   id: string
   name: string
   description?: string
+  category: string
   amount: number
   currency: Currency
   recurrence: Recurrence

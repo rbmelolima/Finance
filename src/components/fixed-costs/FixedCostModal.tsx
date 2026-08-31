@@ -1,5 +1,6 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
+import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
 
 interface FixedCostModalProps {
@@ -9,6 +10,7 @@ interface FixedCostModalProps {
     id?: string
     name: string
     description?: string
+    category: string
     amount: number
     currency: Currency
     recurrence: Recurrence
@@ -38,6 +40,7 @@ interface FixedCostFormProps {
     id?: string
     name: string
     description?: string
+    category: string
     amount: number
     currency: Currency
     recurrence: Recurrence
@@ -45,14 +48,29 @@ interface FixedCostFormProps {
 }
 
 function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
+  const [categories, setCategories] = useState<string[]>(() => getCategories())
   const [name, setName] = useState(costToEdit?.name ?? '')
   const [description, setDescription] = useState(costToEdit?.description ?? '')
+  const [category, setCategory] = useState(costToEdit?.category ?? (categories[0] || 'Assinatura'))
+  const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+  const [newCategoryName, setNewCategoryName] = useState('')
   const [amountStr, setAmountStr] = useState(
     costToEdit ? costToEdit.amount.toString().replace('.', ',') : ''
   )
   const [currency, setCurrency] = useState<Currency>(costToEdit?.currency ?? 'BRL')
   const [recurrence, setRecurrence] = useState<Recurrence>(costToEdit?.recurrence ?? 'monthly')
   const [error, setError] = useState<string | null>(null)
+
+  function handleAddCustomCategory() {
+    const trimmed = newCategoryName.trim()
+    if (!trimmed) return
+    if (!categories.includes(trimmed)) {
+      setCategories((prev) => [...prev, trimmed])
+    }
+    setCategory(trimmed)
+    setNewCategoryName('')
+    setIsCreatingCategory(false)
+  }
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -71,10 +89,15 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
       return
     }
 
+    const finalCategory = isCreatingCategory && newCategoryName.trim()
+      ? newCategoryName.trim()
+      : category.trim() || 'Outros'
+
     onSave({
       id: costToEdit?.id,
       name: name.trim(),
       description: description.trim() ? description.trim() : undefined,
+      category: finalCategory,
       amount: parsedAmount,
       currency,
       recurrence,
@@ -126,9 +149,89 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Aluguel, Netflix, Adobe Cloud, Internet"
+            placeholder="Ex: Aluguel, Netflix, Adobe Cloud, Condomínio"
             className="mt-1.5 w-full rounded-2xl border border-[#d8e1da] bg-[#fbfcfb] px-4 py-3 text-sm text-[#173d2a] outline-none transition placeholder:text-[#a1afa6] focus:border-[#5d9873] focus:bg-white focus:ring-4 focus:ring-[#b7d7c5]/40"
           />
+        </div>
+
+        {/* Categoria */}
+        <div>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#436350]">
+              Categoria <span className="text-rose-500">*</span>
+            </label>
+            {!isCreatingCategory && (
+              <button
+                type="button"
+                onClick={() => setIsCreatingCategory(true)}
+                className="text-xs font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
+              >
+                + Nova categoria
+              </button>
+            )}
+          </div>
+
+          {isCreatingCategory ? (
+            <div className="mt-1.5 flex gap-2">
+              <input
+                type="text"
+                autoFocus
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="Nome da nova categoria..."
+                className="flex-1 rounded-2xl border border-[#5d9873] bg-white px-4 py-2.5 text-sm text-[#173d2a] outline-none focus:ring-4 focus:ring-[#b7d7c5]/40"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddCustomCategory()
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleAddCustomCategory}
+                className="rounded-2xl bg-[#173d2a] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#245439] cursor-pointer"
+              >
+                Adicionar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreatingCategory(false)
+                  setNewCategoryName('')
+                }}
+                className="rounded-2xl border border-[#d8e1da] px-3 py-2.5 text-xs font-semibold text-[#64736a] transition hover:bg-[#f3f6f4] cursor-pointer"
+              >
+                Voltar
+              </button>
+            </div>
+          ) : (
+            <div className="relative mt-1.5">
+              <select
+                value={category}
+                onChange={(e) => {
+                  if (e.target.value === '__add_new__') {
+                    setIsCreatingCategory(true)
+                  } else {
+                    setCategory(e.target.value)
+                  }
+                }}
+                className="w-full appearance-none rounded-2xl border border-[#d8e1da] bg-[#fbfcfb] px-4 py-3 text-sm font-medium text-[#173d2a] outline-none transition focus:border-[#5d9873] focus:bg-white focus:ring-4 focus:ring-[#b7d7c5]/40 cursor-pointer"
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+                <option value="__add_new__">+ Criar outra categoria...</option>
+              </select>
+              <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4 text-[#8a998f]">
+                <svg viewBox="0 0 20 20" className="size-4" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Descritivo (Opcional) */}

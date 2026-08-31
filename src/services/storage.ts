@@ -1,8 +1,9 @@
-import type { FixedCost, Profile } from '../types/finance'
+import type { FixedCost, PatrimonioData, Profile } from '../types/finance'
 
 const PROFILE_KEY = 'sfp.profile'
 const FIXED_COSTS_KEY = 'sfp.fixed_costs'
 const CATEGORIES_KEY = 'sfp.categories'
+const PATRIMONIO_KEY = 'sfp.patrimonio'
 
 export const DEFAULT_CATEGORIES = [
   'Habitação',
@@ -14,6 +15,47 @@ export const DEFAULT_CATEGORIES = [
   'Educação',
   'Outros',
 ]
+
+export const DEFAULT_PATRIMONIO: PatrimonioData = {
+  ATIVOS: {
+    'Ativo Circulante': {
+      Disponibilidades: {
+        'Dinheiro no bolso (Notas)': 0,
+        'Contas correntes e poupança': 0,
+        'Reserva de emergência': 0,
+      },
+      'Contas a Receber': {
+        Salário: 0,
+        'Renda Extra': 0,
+      },
+      Investimentos: {
+        'Renda fixa': 0,
+        'Renda variável': 0,
+      },
+    },
+    'Passivos com valor': {
+      Veículos: 0,
+      Imóveis: 0,
+      FGTS: 0,
+    },
+  },
+  PASSIVOS: {
+    'Passivo Circulante': {
+      'Cartão de Crédito': 0,
+      'Contas a pagar': 0,
+      'Prestações e Empréstimos': 0,
+      'Outros débitos a pagar': 0,
+    },
+    'Não Circulante': {
+      'Financiamento de Imóvel': 0,
+      'Financiamento de veículo': 0,
+      'Prestações e Empréstimos': 0,
+    },
+    'Patrimônio Líquido': {
+      'Seu patrimônio hoje': 0,
+    },
+  },
+}
 
 export function getSavedProfile(): Profile | null {
   const saved = localStorage.getItem(PROFILE_KEY)
@@ -40,7 +82,6 @@ export function getCategories(): string[] {
   try {
     const parsed = JSON.parse(saved) as string[]
     if (Array.isArray(parsed) && parsed.length > 0) {
-      // Garantir união de padrão com personalizados
       const set = new Set([...DEFAULT_CATEGORIES, ...parsed])
       return Array.from(set)
     }
@@ -94,7 +135,6 @@ export function saveFixedCostItem(
   const now = new Date().toISOString()
   const category = cost.category?.trim() || 'Outros'
 
-  // Garante que a categoria seja salva na lista global se for nova
   addCategory(category)
 
   if (cost.id) {
@@ -122,4 +162,106 @@ export function deleteFixedCostItem(id: string): void {
   const existing = getFixedCosts()
   const filtered = existing.filter((item) => item.id !== id)
   saveFixedCosts(filtered)
+}
+
+// ---------------- PATRIMÔNIO ---------------- //
+
+export function getPatrimonioData(): PatrimonioData {
+  const saved = localStorage.getItem(PATRIMONIO_KEY)
+  if (!saved) return DEFAULT_PATRIMONIO
+  try {
+    const parsed = JSON.parse(saved) as PatrimonioData
+    // Garante que a estrutura exista mesmo se sofrer migração parcial
+    return {
+      ATIVOS: {
+        'Ativo Circulante': {
+          Disponibilidades: {
+            ...DEFAULT_PATRIMONIO.ATIVOS['Ativo Circulante'].Disponibilidades,
+            ...(parsed.ATIVOS?.['Ativo Circulante']?.Disponibilidades || {}),
+          },
+          'Contas a Receber': {
+            ...DEFAULT_PATRIMONIO.ATIVOS['Ativo Circulante']['Contas a Receber'],
+            ...(parsed.ATIVOS?.['Ativo Circulante']?.['Contas a Receber'] || {}),
+          },
+          Investimentos: {
+            ...DEFAULT_PATRIMONIO.ATIVOS['Ativo Circulante'].Investimentos,
+            ...(parsed.ATIVOS?.['Ativo Circulante']?.Investimentos || {}),
+          },
+        },
+        'Passivos com valor': {
+          ...DEFAULT_PATRIMONIO.ATIVOS['Passivos com valor'],
+          ...(parsed.ATIVOS?.['Passivos com valor'] || {}),
+        },
+      },
+      PASSIVOS: {
+        'Passivo Circulante': {
+          ...DEFAULT_PATRIMONIO.PASSIVOS['Passivo Circulante'],
+          ...(parsed.PASSIVOS?.['Passivo Circulante'] || {}),
+        },
+        'Não Circulante': {
+          ...DEFAULT_PATRIMONIO.PASSIVOS['Não Circulante'],
+          ...(parsed.PASSIVOS?.['Não Circulante'] || {}),
+        },
+        'Patrimônio Líquido': {
+          'Seu patrimônio hoje': 0,
+        },
+      },
+    }
+  } catch {
+    return DEFAULT_PATRIMONIO
+  }
+}
+
+export function savePatrimonioData(data: PatrimonioData): void {
+  localStorage.setItem(PATRIMONIO_KEY, JSON.stringify(data))
+}
+
+export function calculatePatrimonioTotals(data: PatrimonioData) {
+  const disp = Object.values(data.ATIVOS['Ativo Circulante'].Disponibilidades).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+  const contasRec = Object.values(data.ATIVOS['Ativo Circulante']['Contas a Receber']).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+  const invest = Object.values(data.ATIVOS['Ativo Circulante'].Investimentos).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+  const totalCirculanteAtivo = disp + contasRec + invest
+
+  const passivosComValor = Object.values(data.ATIVOS['Passivos com valor']).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+
+  const totalAtivos = totalCirculanteAtivo + passivosComValor
+
+  const passivoCirculante = Object.values(data.PASSIVOS['Passivo Circulante']).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+  const passivoNaoCirculante = Object.values(data.PASSIVOS['Não Circulante']).reduce(
+    (a, b) => a + (Number(b) || 0),
+    0
+  )
+
+  const totalPassivos = passivoCirculante + passivoNaoCirculante
+  const patrimonioLiquido = totalAtivos - totalPassivos
+
+  return {
+    subtotals: {
+      disponibilidades: disp,
+      contasAReceber: contasRec,
+      investimentos: invest,
+      ativoCirculante: totalCirculanteAtivo,
+      passivosComValor,
+      passivoCirculante,
+      passivoNaoCirculante,
+    },
+    totalAtivos,
+    totalPassivos,
+    patrimonioLiquido,
+  }
 }

@@ -14,7 +14,60 @@ export interface FixedCost {
   updatedAt?: string
 }
 
-export type Screen = 'landing' | 'login' | 'dashboard' | 'fixed-costs'
+export interface AtivosCirculante {
+  Disponibilidades: {
+    'Dinheiro no bolso (Notas)': number
+    'Contas correntes e poupança': number
+    'Reserva de emergência': number
+  }
+  'Contas a Receber': {
+    Salário: number
+    'Renda Extra': number
+  }
+  Investimentos: {
+    'Renda fixa': number
+    'Renda variável': number
+  }
+}
+
+export interface AtivosPassivosComValor {
+  Veículos: number
+  Imóveis: number
+  FGTS: number
+}
+
+export interface AtivosData {
+  'Ativo Circulante': AtivosCirculante
+  'Passivos com valor': AtivosPassivosComValor
+}
+
+export interface PassivosCirculante {
+  'Cartão de Crédito': number
+  'Contas a pagar': number
+  'Prestações e Empréstimos': number
+  'Outros débitos a pagar': number
+}
+
+export interface PassivosNaoCirculante {
+  'Financiamento de Imóvel': number
+  'Financiamento de veículo': number
+  'Prestações e Empréstimos': number
+}
+
+export interface PassivosData {
+  'Passivo Circulante': PassivosCirculante
+  'Não Circulante': PassivosNaoCirculante
+  'Patrimônio Líquido': {
+    'Seu patrimônio hoje': number
+  }
+}
+
+export interface PatrimonioData {
+  ATIVOS: AtivosData
+  PASSIVOS: PassivosData
+}
+
+export type Screen = 'landing' | 'login' | 'dashboard' | 'fixed-costs' | 'patrimonio'
 
 export interface Profile {
   name: string

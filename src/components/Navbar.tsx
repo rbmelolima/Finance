@@ -36,6 +36,16 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
             >
               Custos Fixos
             </button>
+            <button
+              onClick={() => onNavigate('patrimonio')}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition cursor-pointer ${
+                currentScreen === 'patrimonio'
+                  ? 'bg-[#edf5ef] text-[#173d2a] font-semibold'
+                  : 'text-[#64736a] hover:bg-[#f3f6f4] hover:text-[#173d2a]'
+              }`}
+            >
+              Patrimônio
+            </button>
           </nav>
         </div>
 
@@ -55,7 +65,7 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
       </div>
 
       {/* Mobile nav bar */}
-      <div className="flex border-t border-[#edf2ee] px-6 py-2 sm:hidden">
+      <div className="flex border-t border-[#edf2ee] px-4 py-2 sm:hidden">
         <button
           onClick={() => onNavigate('dashboard')}
           className={`flex-1 py-1.5 text-center text-xs font-medium ${
@@ -71,6 +81,14 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
           }`}
         >
           Custos Fixos
+        </button>
+        <button
+          onClick={() => onNavigate('patrimonio')}
+          className={`flex-1 py-1.5 text-center text-xs font-medium ${
+            currentScreen === 'patrimonio' ? 'font-semibold text-[#173d2a]' : 'text-[#64736a]'
+          }`}
+        >
+          Patrimônio
         </button>
       </div>
     </header>

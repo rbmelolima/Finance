@@ -5,15 +5,18 @@ import { FixedCostsPage } from './components/fixed-costs/FixedCostsPage'
 import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
 import { Logo } from './components/Logo'
 import { Navbar } from './components/Navbar'
+import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import {
   clearProfile,
   deleteFixedCostItem,
   getFixedCosts,
+  getPatrimonioData,
   getSavedProfile,
   saveFixedCostItem,
+  savePatrimonioData,
   saveProfile,
 } from './services/storage'
-import type { FixedCost, Profile, Screen } from './types/finance'
+import type { FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
 
 function App() {
   const [profile, setProfile] = useState<Profile | null>(getSavedProfile)
@@ -21,6 +24,7 @@ function App() {
   const [name, setName] = useState(() => getSavedProfile()?.name ?? '')
   const [email, setEmail] = useState(() => getSavedProfile()?.email ?? '')
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(getFixedCosts)
+  const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
   function enter(event: FormEvent<HTMLFormElement>) {
@@ -47,6 +51,11 @@ function App() {
   function handleDeleteCost(id: string) {
     deleteFixedCostItem(id)
     setFixedCosts(getFixedCosts())
+  }
+
+  function handleSavePatrimonio(newData: PatrimonioData) {
+    savePatrimonioData(newData)
+    setPatrimonio(newData)
   }
 
   // Telas não autenticadas
@@ -86,6 +95,7 @@ function App() {
         <DashboardPage
           name={profile.name}
           fixedCosts={fixedCosts}
+          patrimonio={patrimonio}
           onNavigate={setScreen}
           onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
         />
@@ -96,6 +106,13 @@ function App() {
           fixedCosts={fixedCosts}
           onSaveCost={handleSaveCost}
           onDeleteCost={handleDeleteCost}
+        />
+      )}
+
+      {screen === 'patrimonio' && (
+        <PatrimonioPage
+          patrimonio={patrimonio}
+          onSavePatrimonio={handleSavePatrimonio}
         />
       )}
 

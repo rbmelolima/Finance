@@ -1,9 +1,12 @@
-import type { FixedCost, PatrimonioData, Profile } from '../types/finance'
+import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Profile } from '../types/finance'
 
 const PROFILE_KEY = 'sfp.profile'
 const FIXED_COSTS_KEY = 'sfp.fixed_costs'
 const CATEGORIES_KEY = 'sfp.categories'
 const PATRIMONIO_KEY = 'sfp.patrimonio'
+const BANK_ACCOUNTS_KEY = 'sfp.bank_accounts'
+const CREDIT_CARDS_KEY = 'sfp.credit_cards'
+
 
 export const DEFAULT_CATEGORIES = [
   'Habitação',
@@ -265,3 +268,210 @@ export function calculatePatrimonioTotals(data: PatrimonioData) {
     patrimonioLiquido,
   }
 }
+
+// ---------------- CONTAS BANCÁRIAS (VISÃO GERAL) ---------------- //
+
+export function getBankAccounts(): BankAccount[] {
+  const saved = localStorage.getItem(BANK_ACCOUNTS_KEY)
+  if (!saved) return []
+  try {
+    const items = JSON.parse(saved) as BankAccount[]
+    if (Array.isArray(items)) {
+      return items
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+export function saveBankAccounts(accounts: BankAccount[]): void {
+  localStorage.setItem(BANK_ACCOUNTS_KEY, JSON.stringify(accounts))
+}
+
+export function saveBankAccountItem(
+  account: Omit<BankAccount, 'id' | 'createdAt'> & { id?: string }
+): BankAccount {
+  const existing = getBankAccounts()
+  const now = new Date().toISOString()
+
+  if (account.id) {
+    const updated = existing.map((item) =>
+      item.id === account.id ? { ...item, ...account, updatedAt: now } : item
+    )
+    saveBankAccounts(updated)
+    return updated.find((i) => i.id === account.id)!
+  } else {
+    const newAccount: BankAccount = {
+      ...account,
+      id: crypto.randomUUID
+        ? crypto.randomUUID()
+        : `acc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: now,
+    }
+    const updated = [newAccount, ...existing]
+    saveBankAccounts(updated)
+    return newAccount
+  }
+}
+
+export function updateBankAccountBalance(id: string, newBalance: number): void {
+  const existing = getBankAccounts()
+  const updated = existing.map((item) =>
+    item.id === id ? { ...item, balance: Number(newBalance) || 0, updatedAt: new Date().toISOString() } : item
+  )
+  saveBankAccounts(updated)
+}
+
+export function deleteBankAccountItem(id: string): void {
+  const existing = getBankAccounts()
+  const filtered = existing.filter((item) => item.id !== id)
+  saveBankAccounts(filtered)
+}
+
+// ---------------- CARTÕES DE CRÉDITO (VISÃO GERAL) ---------------- //
+
+export function getCreditCards(): CreditCard[] {
+  const saved = localStorage.getItem(CREDIT_CARDS_KEY)
+  if (!saved) return []
+  try {
+    const items = JSON.parse(saved) as CreditCard[]
+    if (Array.isArray(items)) {
+      return items
+    }
+    return []
+  } catch {
+    return []
+  }
+}
+
+export function saveCreditCards(cards: CreditCard[]): void {
+  localStorage.setItem(CREDIT_CARDS_KEY, JSON.stringify(cards))
+}
+
+export function saveCreditCardItem(
+  card: Omit<CreditCard, 'id' | 'createdAt'> & { id?: string }
+): CreditCard {
+  const existing = getCreditCards()
+  const now = new Date().toISOString()
+
+  if (card.id) {
+    const updated = existing.map((item) =>
+      item.id === card.id ? { ...item, ...card, updatedAt: now } : item
+    )
+    saveCreditCards(updated)
+    return updated.find((i) => i.id === card.id)!
+  } else {
+    const newCard: CreditCard = {
+      ...card,
+      id: crypto.randomUUID
+        ? crypto.randomUUID()
+        : `card_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: now,
+    }
+    const updated = [newCard, ...existing]
+    saveCreditCards(updated)
+    return newCard
+  }
+}
+
+export function updateCreditCardInvoice(id: string, newInvoiceAmount: number): void {
+  const existing = getCreditCards()
+  const updated = existing.map((item) =>
+    item.id === id ? { ...item, invoiceAmount: Number(newInvoiceAmount) || 0, updatedAt: new Date().toISOString() } : item
+  )
+  saveCreditCards(updated)
+}
+
+export function deleteCreditCardItem(id: string): void {
+  const existing = getCreditCards()
+  const filtered = existing.filter((item) => item.id !== id)
+  saveCreditCards(filtered)
+}
+
+// ---------------- CÁLCULOS DA CARTEIRA & INSIGHTS ---------------- //
+
+export function calculateCarteiraTotals(accounts: BankAccount[], cards: CreditCard[]) {
+  const totalMoneyInAccounts = accounts.reduce((acc, a) => acc + (Number(a.balance) || 0), 0)
+  const totalCreditCardsToPay = cards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0)
+  const netRealBalance = totalMoneyInAccounts - totalCreditCardsToPay
+
+  const commitmentRatio = totalMoneyInAccounts > 0
+    ? (totalCreditCardsToPay / totalMoneyInAccounts) * 100
+    : totalCreditCardsToPay > 0 ? 100 : 0
+
+  // Dias até o final do mês
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-11
+  const currentDay = now.getDate()
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate()
+  // Incluindo o dia de hoje para o rateio do período restante
+  const daysRemainingInMonth = Math.max(1, totalDaysInMonth - currentDay + 1)
+
+  const monthNames = [
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ]
+  const currentMonthName = monthNames[month]
+
+  // Gasto diário e semanal que o usuário pode ter até zerar o saldo positivo no final do mês
+  const dailyAvailable = netRealBalance > 0 ? netRealBalance / daysRemainingInMonth : 0
+  const weeklyAvailable = dailyAvailable * Math.min(7, daysRemainingInMonth)
+
+  // Cobertura de faturas (ex: 2.5x)
+  const coverageRatio = totalCreditCardsToPay > 0
+    ? totalMoneyInAccounts / totalCreditCardsToPay
+    : totalMoneyInAccounts > 0 ? 99 : 0
+
+  // Maior conta
+  const sortedAccounts = [...accounts].sort((a, b) => (Number(b.balance) || 0) - (Number(a.balance) || 0))
+  const largestAccount = sortedAccounts[0] || null
+
+  // Maior fatura
+  const sortedCards = [...cards].sort((a, b) => (Number(b.invoiceAmount) || 0) - (Number(a.invoiceAmount) || 0))
+  const largestCard = sortedCards[0] || null
+
+  // Próximo cartão a vencer
+  const cardsWithDueDay = cards
+    .filter((c) => c.dueDay !== undefined && c.dueDay !== null && Number(c.invoiceAmount) > 0)
+    .map((c) => {
+      let diff = (c.dueDay || 0) - currentDay
+      if (diff < 0) diff += totalDaysInMonth
+      return { card: c, diff }
+    })
+    .sort((a, b) => a.diff - b.diff)
+
+  const nextDueCard = cardsWithDueDay[0] ? cardsWithDueDay[0].card : null
+
+  return {
+    totalMoneyInAccounts,
+    totalCreditCardsToPay,
+    netRealBalance,
+    commitmentRatio,
+    currentDay,
+    totalDaysInMonth,
+    daysRemainingInMonth,
+    currentMonthName,
+    dailyAvailable,
+    weeklyAvailable,
+    coverageRatio,
+    largestAccount,
+    largestCard,
+    nextDueCard,
+  }
+}
+
+export const calculateOverviewTotals = calculateCarteiraTotals
+
+

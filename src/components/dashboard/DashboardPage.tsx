@@ -1,13 +1,16 @@
-import { calculatePatrimonioTotals } from '../../services/storage'
-import type { FixedCost, PatrimonioData, Screen } from '../../types/finance'
+import { calculateOverviewTotals, calculatePatrimonioTotals } from '../../services/storage'
+import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Screen } from '../../types/finance'
 
 interface DashboardPageProps {
   name: string
   fixedCosts: FixedCost[]
   patrimonio: PatrimonioData
+  bankAccounts?: BankAccount[]
+  creditCards?: CreditCard[]
   onNavigate: (screen: Screen) => void
   onOpenNewFixedCost: () => void
 }
+
 
 const CATEGORY_COLORS: string[] = [
   '#173d2a',
@@ -24,9 +27,12 @@ export function DashboardPage({
   name,
   fixedCosts,
   patrimonio,
+  bankAccounts = [],
+  creditCards = [],
   onNavigate,
   onOpenNewFixedCost,
 }: DashboardPageProps) {
+
   const hasUSD = fixedCosts.some((c) => c.currency === 'USD')
 
   // Custos fixos
@@ -47,6 +53,21 @@ export function DashboardPage({
 
   const formattedMonthlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(monthlyUSD)
   const formattedYearlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(yearlyUSD)
+
+  // Totais da Carteira (Contas vs Cartões)
+  const carteiraTotals = calculateOverviewTotals(bankAccounts || [], creditCards || [])
+  const formattedNetRealBalance = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    carteiraTotals.netRealBalance
+  )
+  const formattedAccountsMoney = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    carteiraTotals.totalMoneyInAccounts
+  )
+  const formattedCardsAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    carteiraTotals.totalCreditCardsToPay
+  )
+  const formattedDailyAvailable = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
+    carteiraTotals.dailyAvailable
+  )
 
   // Totais do Patrimônio
   const patrimonioTotals = calculatePatrimonioTotals(patrimonio)
@@ -90,96 +111,111 @@ export function DashboardPage({
         </h1>
 
         <div className="mt-10 grid gap-5 md:grid-cols-3">
-          {/* Card Patrimônio Líquido Principal */}
+          {/* Card Carteira Principal (Saldo Livre Imediato) */}
           <article className="rounded-3xl bg-[#173d2a] p-6 text-white md:col-span-2 shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-[#b7d7c5]">Patrimônio Líquido Total</p>
+              <div className="flex items-center gap-2">
+                <span className="text-base">⚡</span>
+                <p className="text-sm font-semibold text-[#b7d7c5]">Carteira: Saldo Livre Hoje</p>
+              </div>
               <button
-                onClick={() => onNavigate('patrimonio')}
+                onClick={() => onNavigate('carteira')}
                 className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-[#b7d7c5] hover:bg-white/20 transition cursor-pointer"
               >
-                Gerenciar Balanço →
+                Abrir Carteira →
               </button>
             </div>
             <p className="mt-4 text-4xl font-extrabold tracking-[-0.05em]">
-              {formattedPatrimonioLiquido}
+              {formattedNetRealBalance}
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-white/10 pt-4 text-xs text-[#b7d7c5]">
-              <span>Ativos: <strong className="text-white">{formattedAtivos}</strong></span>
+              <span>Dinheiro em Conta: <strong className="text-white">{formattedAccountsMoney}</strong></span>
               <span>•</span>
-              <span>Passivos: <strong className="text-white">{formattedPassivos}</strong></span>
+              <span>Faturas a Pagar: <strong className="text-white">{formattedCardsAmount}</strong></span>
+              <span>•</span>
+              <span>Teto Diário: <strong className="text-white">{formattedDailyAvailable}/dia</strong> ({carteiraTotals.daysRemainingInMonth}d)</span>
             </div>
           </article>
 
-          {/* Card Situação Atual */}
+          {/* Card Patrimônio Líquido */}
           <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
-            <p className="text-sm text-[#8a998f]">Balanço Patrimonial</p>
-            <p className="mt-4 text-2xl font-semibold text-[#30483a]">
-              {patrimonioTotals.patrimonioLiquido >= 0 ? 'Posição Positiva' : 'Atenção ao Passivo'}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-[#8a998f]">Patrimônio Líquido Total</p>
+              <button
+                onClick={() => onNavigate('patrimonio')}
+                className="text-xs font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
+              >
+                Ver balanço →
+              </button>
+            </div>
+            <p className="mt-4 text-2xl font-bold text-[#173d2a]">
+              {formattedPatrimonioLiquido}
             </p>
-            <p className="mt-3 text-sm leading-6 text-[#718078]">
-              {patrimonioTotals.totalAtivos > 0 || patrimonioTotals.totalPassivos > 0
-                ? `Você possui ${formattedAtivos} em ativos registrados.`
-                : 'Mantenha seus ativos e passivos atualizados para acompanhar a evolução do seu patrimônio.'}
-            </p>
-            <button
-              onClick={() => onNavigate('patrimonio')}
-              className="mt-4 text-xs font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
-            >
-              Ver balanço completo →
-            </button>
+            <div className="mt-3 space-y-1 text-xs text-[#718078]">
+              <p>Ativos: {formattedAtivos}</p>
+              <p>Passivos: {formattedPassivos}</p>
+            </div>
           </article>
         </div>
 
         <div className="mt-5 grid gap-5 md:grid-cols-3">
-          {/* Card Patrimônio Rápido */}
+          {/* Card Contas Bancárias */}
           <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-[#30483a]">Patrimônio</h2>
+              <h2 className="font-semibold text-[#30483a]">Contas Bancárias</h2>
               <button
-                onClick={() => onNavigate('patrimonio')}
+                onClick={() => onNavigate('carteira')}
                 className="grid size-8 place-items-center rounded-full bg-[#edf5ef] text-lg font-medium text-[#173d2a] transition hover:bg-[#d8e8dc] cursor-pointer"
-                title="Acessar Patrimônio"
+                title="Acessar Contas Bancárias"
               >
                 →
               </button>
             </div>
             <div className="mt-4">
               <p className="text-2xl font-bold tracking-tight text-[#173d2a]">
-                {formattedPatrimonioLiquido}
+                {formattedAccountsMoney}
               </p>
-              <div className="mt-2 space-y-1 text-xs text-[#718078]">
-                <p>Ativos: {formattedAtivos}</p>
-                <p>Passivos: {formattedPassivos}</p>
-              </div>
+              <p className="mt-1 text-xs text-[#718078]">
+                {(bankAccounts || []).length} { (bankAccounts || []).length === 1 ? 'conta cadastrada' : 'contas cadastradas'}
+              </p>
               <button
-                onClick={() => onNavigate('patrimonio')}
+                onClick={() => onNavigate('carteira')}
                 className="mt-4 inline-flex items-center text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
               >
-                Ajustar ativos e passivos →
+                Gerenciar contas e saldos →
               </button>
             </div>
           </article>
 
-          {/* Card Cartões / Contas */}
-          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
+          {/* Card Cartões de Crédito */}
+          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-rose-200">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold text-[#30483a]">Contas e Reservas</h2>
-              <span className="text-2xl font-light text-[#9aae9f]">+</span>
+              <h2 className="font-semibold text-[#30483a]">Cartões a Pagar</h2>
+              <button
+                onClick={() => onNavigate('carteira')}
+                className="grid size-8 place-items-center rounded-full bg-rose-50 text-lg font-medium text-rose-700 transition hover:bg-rose-100 cursor-pointer"
+                title="Acessar Cartões de Crédito"
+              >
+                →
+              </button>
             </div>
-            <p className="mt-4 text-sm text-[#8a998f]">
-              Disponibilidades: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioTotals.subtotals.disponibilidades)}
-            </p>
-            <p className="mt-1 text-xs text-[#718078]">
-              Investimentos: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(patrimonioTotals.subtotals.investimentos)}
-            </p>
-            <button
-              onClick={() => onNavigate('patrimonio')}
-              className="mt-5 text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
-            >
-              Ver detalhes no Patrimônio →
-            </button>
+            <div className="mt-4">
+              <p className="text-2xl font-bold tracking-tight text-rose-600">
+                {formattedCardsAmount}
+              </p>
+              <p className="mt-1 text-xs text-[#718078]">
+                {(creditCards || []).length} { (creditCards || []).length === 1 ? 'cartão cadastrado' : 'cartões cadastrados'}
+              </p>
+              <button
+                onClick={() => onNavigate('carteira')}
+                className="mt-4 inline-flex items-center text-sm font-semibold text-rose-600 hover:text-rose-800 cursor-pointer"
+              >
+                Gerenciar faturas de cartão →
+              </button>
+            </div>
           </article>
+
+
 
           {/* Card Custos Fixos Integrado */}
           <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">

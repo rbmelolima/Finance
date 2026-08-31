@@ -67,9 +67,38 @@ export interface PatrimonioData {
   PASSIVOS: PassivosData
 }
 
-export type Screen = 'landing' | 'login' | 'dashboard' | 'fixed-costs' | 'patrimonio'
+export type AccountType = 'corrente' | 'poupanca' | 'investimento' | 'carteira' | 'outros'
+
+export interface BankAccount {
+  id: string
+  bankSlug: string
+  bankName: string
+  accountName: string
+  accountType: AccountType
+  balance: number
+  color?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface CreditCard {
+  id: string
+  bankSlug: string
+  bankName: string
+  cardName: string
+  invoiceAmount: number
+  dueDay?: number
+  closingDay?: number
+  limit?: number
+  color?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export type Screen = 'landing' | 'login' | 'carteira' | 'overview' | 'dashboard' | 'fixed-costs' | 'patrimonio'
 
 export interface Profile {
   name: string
   email: string
 }
+

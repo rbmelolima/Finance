@@ -1,27 +1,39 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
+
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { FixedCostsPage } from './components/fixed-costs/FixedCostsPage'
 import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
 import { Logo } from './components/Logo'
 import { Navbar } from './components/Navbar'
+import { OverviewPage } from './components/overview/OverviewPage'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import {
+  deleteBankAccountItem,
+  deleteCreditCardItem,
   deleteFixedCostItem,
+  getBankAccounts,
+  getCreditCards,
   getFixedCosts,
   getPatrimonioData,
   getSavedProfile,
+  saveBankAccountItem,
+  saveCreditCardItem,
   saveFixedCostItem,
   savePatrimonioData,
   saveProfile,
+  updateBankAccountBalance,
+  updateCreditCardInvoice,
 } from './services/storage'
-import type { FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
+import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
 
 function App() {
   const [profile, setProfile] = useState<Profile | null>(getSavedProfile)
-  const [screen, setScreen] = useState<Screen>(() => (getSavedProfile() ? 'dashboard' : 'landing'))
+  const [screen, setScreen] = useState<Screen>(() => (getSavedProfile() ? 'carteira' : 'landing'))
   const [name, setName] = useState(() => getSavedProfile()?.name ?? '')
   const [email, setEmail] = useState(() => getSavedProfile()?.email ?? '')
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(getBankAccounts)
+  const [creditCards, setCreditCards] = useState<CreditCard[]>(getCreditCards)
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(getFixedCosts)
   const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
@@ -35,7 +47,7 @@ function App() {
       setProfile(nextProfile)
       setName(trimmedName)
       setEmail(trimmedEmail)
-      setScreen('dashboard')
+      setScreen('carteira')
     }
   }
 
@@ -50,10 +62,42 @@ function App() {
       setProfile(saved)
       setName(saved.name)
       setEmail(saved.email)
-      setScreen('dashboard')
+      setScreen('carteira')
     } else {
       setScreen('login')
     }
+  }
+
+  // Handlers de Contas Bancárias
+  function handleSaveBankAccount(account: Omit<BankAccount, 'id' | 'createdAt'> & { id?: string }) {
+    saveBankAccountItem(account)
+    setBankAccounts(getBankAccounts())
+  }
+
+  function handleDeleteBankAccount(id: string) {
+    deleteBankAccountItem(id)
+    setBankAccounts(getBankAccounts())
+  }
+
+  function handleUpdateAccountBalance(id: string, newBalance: number) {
+    updateBankAccountBalance(id, newBalance)
+    setBankAccounts(getBankAccounts())
+  }
+
+  // Handlers de Cartões de Crédito
+  function handleSaveCreditCard(card: Omit<CreditCard, 'id' | 'createdAt'> & { id?: string }) {
+    saveCreditCardItem(card)
+    setCreditCards(getCreditCards())
+  }
+
+  function handleDeleteCreditCard(id: string) {
+    deleteCreditCardItem(id)
+    setCreditCards(getCreditCards())
+  }
+
+  function handleUpdateCardInvoice(id: string, newInvoiceAmount: number) {
+    updateCreditCardInvoice(id, newInvoiceAmount)
+    setCreditCards(getCreditCards())
   }
 
   function handleSaveCost(cost: Omit<FixedCost, 'id' | 'createdAt'> & { id?: string }) {
@@ -70,6 +114,7 @@ function App() {
     savePatrimonioData(newData)
     setPatrimonio(newData)
   }
+
 
   // Telas não autenticadas
   if (screen === 'login') {
@@ -108,11 +153,28 @@ function App() {
         onExit={handleExit}
       />
 
+      {(screen === 'carteira' || screen === 'overview') && (
+        <OverviewPage
+          bankAccounts={bankAccounts}
+          creditCards={creditCards}
+          onSaveBankAccount={handleSaveBankAccount}
+          onDeleteBankAccount={handleDeleteBankAccount}
+          onUpdateAccountBalance={handleUpdateAccountBalance}
+          onSaveCreditCard={handleSaveCreditCard}
+          onDeleteCreditCard={handleDeleteCreditCard}
+          onUpdateCardInvoice={handleUpdateCardInvoice}
+          onNavigate={setScreen}
+        />
+      )}
+
+
       {screen === 'dashboard' && profile && (
         <DashboardPage
           name={profile.name}
           fixedCosts={fixedCosts}
           patrimonio={patrimonio}
+          bankAccounts={bankAccounts}
+          creditCards={creditCards}
           onNavigate={setScreen}
           onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
         />
@@ -142,6 +204,7 @@ function App() {
     </div>
   )
 }
+
 
 function Landing({
   savedProfile,

@@ -7,7 +7,6 @@ import { Logo } from './components/Logo'
 import { Navbar } from './components/Navbar'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import {
-  clearProfile,
   deleteFixedCostItem,
   getFixedCosts,
   getPatrimonioData,
@@ -27,20 +26,34 @@ function App() {
   const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
-  function enter(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (name.trim() && email.trim()) {
-      const nextProfile = { name: name.trim(), email: email.trim() }
+  function handleLogin(newName: string, newEmail: string) {
+    const trimmedName = newName.trim()
+    const trimmedEmail = newEmail.trim()
+    if (trimmedName && trimmedEmail) {
+      const nextProfile = { name: trimmedName, email: trimmedEmail }
       saveProfile(nextProfile)
       setProfile(nextProfile)
+      setName(trimmedName)
+      setEmail(trimmedEmail)
       setScreen('dashboard')
     }
   }
 
   function handleExit() {
-    clearProfile()
     setProfile(null)
     setScreen('landing')
+  }
+
+  function handleEnterApp() {
+    const saved = getSavedProfile()
+    if (saved && saved.name && saved.email) {
+      setProfile(saved)
+      setName(saved.name)
+      setEmail(saved.email)
+      setScreen('dashboard')
+    } else {
+      setScreen('login')
+    }
   }
 
   function handleSaveCost(cost: Omit<FixedCost, 'id' | 'createdAt'> & { id?: string }) {
@@ -62,21 +75,25 @@ function App() {
   if (screen === 'login') {
     return (
       <Login
-        name={name}
-        email={email}
-        setName={setName}
-        setEmail={setEmail}
-        onSubmit={enter}
+        initialName={name}
+        initialEmail={email}
+        onLogin={handleLogin}
         onBack={() => setScreen('landing')}
       />
     )
   }
 
   if (screen === 'landing') {
+    const savedProfile = getSavedProfile()
     return (
       <Landing
-        profile={profile}
-        onEnterApp={() => setScreen(profile ? 'dashboard' : 'login')}
+        savedProfile={savedProfile}
+        onEnterApp={handleEnterApp}
+        onNewProfile={() => {
+          setName('')
+          setEmail('')
+          setScreen('login')
+        }}
       />
     )
   }
@@ -127,22 +144,34 @@ function App() {
 }
 
 function Landing({
-  profile,
+  savedProfile,
   onEnterApp,
+  onNewProfile,
 }: {
-  profile: Profile | null
+  savedProfile: Profile | null
   onEnterApp: () => void
+  onNewProfile: () => void
 }) {
   return (
     <main className="min-h-screen overflow-hidden bg-[#f7f8f5]">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6 lg:px-10">
         <Logo />
-        <button
-          onClick={onEnterApp}
-          className="rounded-full px-5 py-2.5 text-sm font-semibold text-[#173d2a] transition hover:bg-[#e9f0eb] cursor-pointer"
-        >
-          {profile ? 'Entrar no Dashboard' : 'Entrar'}
-        </button>
+        <div className="flex items-center gap-3">
+          {savedProfile && (
+            <button
+              onClick={onNewProfile}
+              className="text-xs font-semibold text-[#64736a] hover:text-[#173d2a] px-3 py-2 cursor-pointer transition hidden sm:inline-block"
+            >
+              Entrar com outra conta
+            </button>
+          )}
+          <button
+            onClick={onEnterApp}
+            className="rounded-full bg-[#173d2a] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#245439] cursor-pointer"
+          >
+            {savedProfile ? 'Entrar' : 'Entrar'}
+          </button>
+        </div>
       </nav>
 
       <section className="mx-auto grid max-w-6xl items-center gap-14 px-6 pb-16 pt-14 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:pb-24 lg:pt-24">
@@ -156,15 +185,25 @@ function Landing({
           <p className="mt-7 max-w-lg text-lg leading-8 text-[#64736a]">
             Uma visão simples da sua situação atual, dos seus custos fixos e do seu patrimônio — tudo no seu ritmo.
           </p>
-          <button
-            onClick={onEnterApp}
-            className="mt-9 rounded-2xl bg-[#173d2a] px-6 py-4 font-semibold text-white shadow-lg shadow-[#173d2a]/10 transition hover:-translate-y-0.5 hover:bg-[#245439] cursor-pointer"
-          >
-            {profile ? 'Ir para meu dashboard' : 'Criar meu espaço'}{' '}
-            <span className="ml-2" aria-hidden="true">
-              →
-            </span>
-          </button>
+          <div className="mt-9 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+            <button
+              onClick={onEnterApp}
+              className="rounded-2xl bg-[#173d2a] px-6 py-4 font-semibold text-white shadow-lg shadow-[#173d2a]/10 transition hover:-translate-y-0.5 hover:bg-[#245439] cursor-pointer"
+            >
+              {savedProfile ? `Continuar como ${savedProfile.name}` : 'Criar meu espaço'}{' '}
+              <span className="ml-2" aria-hidden="true">
+                →
+              </span>
+            </button>
+            {savedProfile && (
+              <button
+                onClick={onNewProfile}
+                className="text-sm font-medium text-[#64736a] hover:text-[#173d2a] underline underline-offset-4 cursor-pointer"
+              >
+                Não é você? Trocar de conta
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="relative">
@@ -219,19 +258,60 @@ function Landing({
 }
 
 type LoginProps = {
-  name: string
-  email: string
-  setName: (value: string) => void
-  setEmail: (value: string) => void
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void
+  initialName: string
+  initialEmail: string
+  onLogin: (name: string, email: string) => void
   onBack: () => void
 }
 
-function Login({ name, email, setName, setEmail, onSubmit, onBack }: LoginProps) {
+function Login({ initialName, initialEmail, onLogin, onBack }: LoginProps) {
+  const [name, setName] = useState(initialName)
+  const [email, setEmail] = useState(initialEmail)
+  const [errors, setErrors] = useState<{ name?: string; email?: string }>({})
+  const [touched, setTouched] = useState<{ name?: boolean; email?: boolean }>({})
+
+  function validate(currentName: string, currentEmail: string) {
+    const errs: { name?: string; email?: string } = {}
+    const trimmedName = currentName.trim()
+    const trimmedEmail = currentEmail.trim()
+
+    if (!trimmedName) {
+      errs.name = 'Por favor, digite seu nome.'
+    }
+
+    if (!trimmedEmail) {
+      errs.email = 'Por favor, digite seu e-mail.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      errs.email = 'Por favor, insira um e-mail válido (exemplo: voce@email.com).'
+    }
+
+    return errs
+  }
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setTouched({ name: true, email: true })
+
+    const validationErrors = validate(name, email)
+    setErrors(validationErrors)
+
+    if (Object.keys(validationErrors).length > 0) {
+      return
+    }
+
+    onLogin(name.trim(), email.trim())
+  }
+
+  const isFormIncomplete = !name.trim() || !email.trim()
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#f7f8f5] px-5 py-10">
       <div className="w-full max-w-[430px]">
-        <button onClick={onBack} className="mb-16 flex items-center gap-3 text-left cursor-pointer" aria-label="Voltar">
+        <button
+          onClick={onBack}
+          className="mb-16 flex items-center gap-3 text-left cursor-pointer hover:opacity-80 transition"
+          aria-label="Voltar"
+        >
           <Logo />
         </button>
         <div className="mb-10">
@@ -245,31 +325,84 @@ function Login({ name, email, setName, setEmail, onSubmit, onBack }: LoginProps)
             Sem senha e sem complicação. Seus dados ficam salvos localmente neste dispositivo.
           </p>
         </div>
-        <form onSubmit={onSubmit} className="space-y-5">
-          <label className="block text-sm font-medium text-[#30483a]">
-            Nome
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          <div>
+            <label htmlFor="login-name" className="block text-sm font-medium text-[#30483a]">
+              Nome
+            </label>
             <input
-              required
+              id="login-name"
               value={name}
-              onChange={(event) => setName(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-3.5 outline-none transition placeholder:text-[#a1afa6] focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/40"
+              onChange={(event) => {
+                const val = event.target.value
+                setName(val)
+                if (touched.name || errors.name) {
+                  const errs = validate(val, email)
+                  setErrors((prev) => ({ ...prev, name: errs.name }))
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, name: true }))
+                const errs = validate(name, email)
+                setErrors((prev) => ({ ...prev, name: errs.name }))
+              }}
+              className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition placeholder:text-[#a1afa6] ${
+                errors.name
+                  ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100'
+                  : 'border-[#d8e1da] focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/40'
+              }`}
               placeholder="Como você quer ser chamado?"
             />
-          </label>
-          <label className="block text-sm font-medium text-[#30483a]">
-            E-mail
+            {errors.name && (
+              <p className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1">
+                <span>⚠</span> {errors.name}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="login-email" className="block text-sm font-medium text-[#30483a]">
+              E-mail
+            </label>
             <input
-              required
+              id="login-email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="mt-2 w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-3.5 outline-none transition placeholder:text-[#a1afa6] focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/40"
+              onChange={(event) => {
+                const val = event.target.value
+                setEmail(val)
+                if (touched.email || errors.email) {
+                  const errs = validate(name, val)
+                  setErrors((prev) => ({ ...prev, email: errs.email }))
+                }
+              }}
+              onBlur={() => {
+                setTouched((prev) => ({ ...prev, email: true }))
+                const errs = validate(name, email)
+                setErrors((prev) => ({ ...prev, email: errs.email }))
+              }}
+              className={`mt-2 w-full rounded-2xl border bg-white px-4 py-3.5 outline-none transition placeholder:text-[#a1afa6] ${
+                errors.email
+                  ? 'border-red-400 focus:border-red-500 focus:ring-4 focus:ring-red-100'
+                  : 'border-[#d8e1da] focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/40'
+              }`}
               placeholder="voce@email.com"
             />
-          </label>
+            {errors.email && (
+              <p className="mt-1.5 text-xs font-medium text-red-600 flex items-center gap-1">
+                <span>⚠</span> {errors.email}
+              </p>
+            )}
+          </div>
+
           <button
             type="submit"
-            className="mt-3 w-full rounded-2xl bg-[#173d2a] px-5 py-4 font-semibold text-white transition hover:bg-[#245439] focus:outline-none focus:ring-4 focus:ring-[#b7d7c5] cursor-pointer"
+            disabled={isFormIncomplete}
+            className={`mt-3 w-full rounded-2xl px-5 py-4 font-semibold text-white transition focus:outline-none focus:ring-4 focus:ring-[#b7d7c5] ${
+              isFormIncomplete
+                ? 'bg-[#173d2a]/50 cursor-not-allowed'
+                : 'bg-[#173d2a] hover:bg-[#245439] cursor-pointer shadow-lg shadow-[#173d2a]/10'
+            }`}
           >
             Entrar no meu espaço <span aria-hidden="true">→</span>
           </button>

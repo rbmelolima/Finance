@@ -26,6 +26,9 @@ export function OrcamentoFamiliarPage({
   // Tab ativa para as 3 visões
   const [activeTab, setActiveTab] = useState<'flow' | 'balance' | 'individual'>('flow')
 
+  // Modal de Confirmação para Zerar
+  const [isClearModalOpen, setIsClearModalOpen] = useState(false)
+
   // Modais de Criação / Edição de Contas
   const [costModalState, setCostModalState] = useState<{
     isOpen: boolean
@@ -77,7 +80,7 @@ export function OrcamentoFamiliarPage({
   // 1. Visão de Fluxo Consolidado da Casa
   const houseNetSurplus = totalIncome - totalFixedCosts - userCardsAmount
 
-  // 2. Visão de Equilíbrio & Proporcionalidade
+  // 2. Visão de Equilíbrio & Proporcionalidade Justa (80% / 20%, etc.)
   const userIncomePercent = totalIncome > 0 ? (userIncome / totalIncome) * 100 : 50
   const partnerIncomePercent = totalIncome > 0 ? (partnerIncome / totalIncome) * 100 : 50
 
@@ -85,17 +88,48 @@ export function OrcamentoFamiliarPage({
   const partnerPaidPercent =
     totalFixedCosts > 0 ? (partnerFixedCostsTotal / totalFixedCosts) * 100 : 50
 
-  // Quanto cada um deveria pagar se fosse proporcional à renda
+  // Cota Justa Proporcional à Renda (Quem ganha 80% paga 80% das contas)
   const idealUserShare = totalFixedCosts * (userIncomePercent / 100)
   const idealPartnerShare = totalFixedCosts * (partnerIncomePercent / 100)
 
-  // Quanto cada um pagaria se fosse 50/50
+  // Cota 50/50
   const halfShare = totalFixedCosts / 2
 
-  // Diferença para o usuário (positivo = pagando a mais que o ideal proporcional)
-  const userDifferenceFromProportional = userFixedCostsTotal - idealUserShare
+  // Diferença do Usuário em relação à Cota Justa Proporcional
+  // Se > 0: pagou a mais que o justo (esposa deve transferir a diferença)
+  // Se < 0: pagou a menos que o justo (você deve transferir a diferença)
+  const userFairDifference = userFixedCostsTotal - idealUserShare
 
-  // 3. Visão Individual & Autonomia
+  // 3. Status de Pagamento (Pago vs Pendente) & Métodos (PIX vs Cartão)
+  const allCosts = useMemo(() => {
+    return [
+      ...orcamentoData.userFixedCosts.map((c) => ({ ...c, owner: 'user' as const })),
+      ...orcamentoData.partnerFixedCosts.map((c) => ({ ...c, owner: 'partner' as const })),
+    ]
+  }, [orcamentoData.userFixedCosts, orcamentoData.partnerFixedCosts])
+
+  const paidCostsTotal = useMemo(() => {
+    return allCosts
+      .filter((c) => c.paymentStatus === 'paid')
+      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
+  }, [allCosts])
+
+  const pendingCostsTotal = Math.max(0, totalFixedCosts - paidCostsTotal)
+  const paidPercent = totalFixedCosts > 0 ? (paidCostsTotal / totalFixedCosts) * 100 : 0
+
+  const pixBoletoTotal = useMemo(() => {
+    return allCosts
+      .filter((c) => c.paymentMethod !== 'credit_card')
+      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
+  }, [allCosts])
+
+  const creditCardCostsTotal = useMemo(() => {
+    return allCosts
+      .filter((c) => c.paymentMethod === 'credit_card')
+      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
+  }, [allCosts])
+
+  // 4. Visão Individual & Autonomia
   const userFreeBalance = userIncome - userFixedCostsTotal - userCardsAmount
   const partnerAvailableBalance = partnerIncome - partnerFixedCostsTotal
 
@@ -165,6 +199,39 @@ export function OrcamentoFamiliarPage({
     onSaveOrcamento(nextOrcamento)
   }
 
+  function handleToggleCostStatus(id: string, target: 'user' | 'partner') {
+    const nextOrcamento = { ...orcamentoData }
+    if (target === 'user') {
+      nextOrcamento.userFixedCosts = nextOrcamento.userFixedCosts.map((c) => {
+        if (c.id === id) {
+          const nextStatus = c.paymentStatus === 'paid' ? 'pending' : 'paid'
+          return { ...c, paymentStatus: nextStatus }
+        }
+        return c
+      })
+    } else {
+      nextOrcamento.partnerFixedCosts = nextOrcamento.partnerFixedCosts.map((c) => {
+        if (c.id === id) {
+          const nextStatus = c.paymentStatus === 'paid' ? 'pending' : 'paid'
+          return { ...c, paymentStatus: nextStatus }
+        }
+        return c
+      })
+    }
+    onSaveOrcamento(nextOrcamento)
+  }
+
+  function handleClearAllCosts() {
+    onSaveOrcamento({
+      ...orcamentoData,
+      userFixedCosts: [],
+      partnerFixedCosts: [],
+      userCreditCardsAmount: 0,
+    })
+    setUserCardsStr('0,00')
+    setIsClearModalOpen(false)
+  }
+
   return (
     <main className="min-h-screen bg-[#f7f8f5] pb-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 sm:pt-10 lg:px-10">
@@ -179,7 +246,7 @@ export function OrcamentoFamiliarPage({
               Orçamento Familiar
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-[#64736a]">
-              Planejamento mensal do casal com divisão de contas, fluxo consolidado e autonomia individual.
+              Planejamento mensal do casal com divisão proporcional justa, fluxo consolidado e controle de contas pagas.
             </p>
           </div>
 
@@ -188,10 +255,18 @@ export function OrcamentoFamiliarPage({
             <button
               type="button"
               onClick={onResetToMasterDefaults}
-              className="rounded-2xl border border-[#d8e1da] bg-white px-4 py-3 text-xs font-semibold text-[#64736a] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer shadow-2xs"
-              title="Recarrega suas contas dos Custos Fixos mestres"
+              className="rounded-2xl border border-[#d8e1da] bg-white px-3.5 py-2.5 text-xs font-semibold text-[#64736a] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer shadow-2xs"
+              title="Recarregar dados dos cadastros mestres"
             >
-              🔄 Recarregar Minhas Contas
+              🔄 Recarregar Mestres
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsClearModalOpen(true)}
+              className="rounded-2xl border border-rose-200 bg-white px-3.5 py-2.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer shadow-2xs"
+              title="Zerar todas as contas deste mês"
+            >
+              🗑️ Zerar Contas
             </button>
           </div>
         </div>
@@ -202,17 +277,24 @@ export function OrcamentoFamiliarPage({
             <h2 className="text-sm font-bold text-[#173d2a] flex items-center gap-2">
               <span>💰</span> Rendimentos da Casa no Mês
             </h2>
-            <span className="text-[11px] text-[#8a998f]">
-              Edições salvas automaticamente
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#173d2a] bg-[#edf5ef] px-3 py-1 rounded-full border border-[#d8e5dc]">
+                Renda Total: {formatCurrency(totalIncome)}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Sua Renda */}
             <div>
-              <label className="block text-xs font-semibold text-[#30483a] mb-1">
-                Sua Renda / Salário (R$)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-[#30483a]">
+                  Sua Renda (Você)
+                </label>
+                <span className="text-[11px] font-extrabold text-[#173d2a] bg-[#edf5ef] px-2 py-0.5 rounded-md">
+                  {userIncomePercent.toFixed(0)}% da renda
+                </span>
+              </div>
               <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-[#5d9873] focus-within:ring-3 focus-within:ring-[#b7d7c5]/40 transition">
                 <span className="text-xs font-bold text-[#8a998f] mr-1.5">R$</span>
                 <input
@@ -230,18 +312,23 @@ export function OrcamentoFamiliarPage({
             {/* Renda da Esposa / Parceira */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-[#30483a]">
-                  Renda de:
-                </label>
-                <input
-                  type="text"
-                  value={partnerNameInput}
-                  onChange={(e) => setPartnerNameInput(e.target.value)}
-                  onBlur={handleSaveHeaderValues}
-                  placeholder="Esposa"
-                  className="w-28 text-right text-xs font-bold text-[#5d9873] border-b border-dashed border-[#5d9873] outline-none bg-transparent"
-                  title="Clique para renomear"
-                />
+                <div className="flex items-center gap-1">
+                  <label className="text-xs font-semibold text-[#30483a]">
+                    Renda de:
+                  </label>
+                  <input
+                    type="text"
+                    value={partnerNameInput}
+                    onChange={(e) => setPartnerNameInput(e.target.value)}
+                    onBlur={handleSaveHeaderValues}
+                    placeholder="Esposa"
+                    className="w-24 text-xs font-bold text-[#5d9873] border-b border-dashed border-[#5d9873] outline-none bg-transparent"
+                    title="Clique para renomear"
+                  />
+                </div>
+                <span className="text-[11px] font-extrabold text-[#5a8067] bg-[#edf5ef] px-2 py-0.5 rounded-md">
+                  {partnerIncomePercent.toFixed(0)}% da renda
+                </span>
               </div>
               <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-[#5d9873] focus-within:ring-3 focus-within:ring-[#b7d7c5]/40 transition">
                 <span className="text-xs font-bold text-[#8a998f] mr-1.5">R$</span>
@@ -259,9 +346,14 @@ export function OrcamentoFamiliarPage({
 
             {/* Fatura dos Seus Cartões */}
             <div>
-              <label className="block text-xs font-semibold text-[#30483a] mb-1">
-                Seus Cartões no Mês (R$)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-semibold text-[#30483a]">
+                  Seus Cartões no Mês
+                </label>
+                <span className="text-[10px] text-[#8a998f]">
+                  (Gastos variáveis)
+                </span>
+              </div>
               <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-rose-400 focus-within:ring-3 focus-within:ring-rose-100 transition">
                 <span className="text-xs font-bold text-rose-500 mr-1.5">R$</span>
                 <input
@@ -274,6 +366,178 @@ export function OrcamentoFamiliarPage({
                   className="w-[85%] text-sm font-bold text-rose-600 outline-none"
                 />
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------------- CARD DESTAQUE: ACERTO JUSTO DO CASAL (PROPORCIONAL À RENDA) ---------------- */}
+        <div className="mt-6 rounded-3xl border border-[#b7d7c5] bg-gradient-to-br from-white via-white to-[#f4f9f5] p-6 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-[#edf2ee] pb-4">
+            <div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-[#173d2a] px-3 py-1 text-xs font-semibold text-white mb-2">
+                <span>⚖️</span> Regra da Divisão Justa Proporcional ({userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)
+              </div>
+              <h3 className="text-xl font-bold text-[#173d2a]">
+                Diagnóstico de Equilíbrio Financeiro
+              </h3>
+              <p className="text-xs text-[#64736a] mt-0.5">
+                Como você representa <strong>{userIncomePercent.toFixed(0)}%</strong> da renda e {partnerNameInput} representa <strong>{partnerIncomePercent.toFixed(0)}%</strong>, a divisão 100% justa é que cada um pague essa mesma proporção das despesas totais ({formatCurrency(totalFixedCosts)}).
+              </p>
+            </div>
+
+            {/* Card de Compensação / Transferência Recomendada */}
+            <div className="rounded-2xl bg-white border border-[#d8e1da] p-4 shadow-2xs shrink-0 max-w-sm">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f] block">
+                Acerto do Casal no Mês
+              </span>
+              {totalFixedCosts === 0 ? (
+                <p className="text-xs font-semibold text-[#8a998f] mt-1">Nenhuma conta cadastrada.</p>
+              ) : Math.abs(userFairDifference) < 1 ? (
+                <p className="text-sm font-bold text-emerald-700 mt-1 flex items-center gap-1.5">
+                  <span>✓</span> Contas perfeitamente equilibradas!
+                </p>
+              ) : userFairDifference > 0 ? (
+                <div className="mt-1 space-y-1">
+                  <p className="text-xs font-semibold text-[#30483a]">
+                    Você pagou a mais que sua cota justa:
+                  </p>
+                  <p className="text-base font-black text-[#173d2a]">
+                    {partnerNameInput} transfere <span className="text-emerald-700">{formatCurrency(userFairDifference)}</span> para você
+                  </p>
+                  <p className="text-[10px] text-[#8a998f]">
+                    (Ou {partnerNameInput} assume mais contas neste valor para equilibrar em {userIncomePercent.toFixed(0)}%/{partnerIncomePercent.toFixed(0)}%)
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-1 space-y-1">
+                  <p className="text-xs font-semibold text-[#30483a]">
+                    {partnerNameInput} pagou a mais que a cota justa:
+                  </p>
+                  <p className="text-base font-black text-[#173d2a]">
+                    Você transfere <span className="text-emerald-700">{formatCurrency(Math.abs(userFairDifference))}</span> para {partnerNameInput}
+                  </p>
+                  <p className="text-[10px] text-[#8a998f]">
+                    (Para fechar exatamente em {userIncomePercent.toFixed(0)}%/{partnerIncomePercent.toFixed(0)}%)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Grid de Cotas vs Pago Real */}
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            {/* Seu lado */}
+            <div className="rounded-2xl bg-[#fafcfb] border border-[#edf2ee] p-3.5 space-y-2">
+              <div className="flex items-center justify-between font-bold text-[#173d2a]">
+                <span>Você ({userIncomePercent.toFixed(0)}% da renda)</span>
+                <span>{formatCurrency(userFixedCostsTotal)} pago</span>
+              </div>
+              <div className="flex items-center justify-between text-[#64736a]">
+                <span>Sua Cota Justa ({userIncomePercent.toFixed(0)}% de {formatCurrency(totalFixedCosts)}):</span>
+                <span className="font-bold text-[#173d2a]">{formatCurrency(idealUserShare)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#8a998f]">Diferença atual:</span>
+                <span className={userFairDifference >= 0 ? 'font-bold text-emerald-700' : 'font-bold text-amber-700'}>
+                  {userFairDifference >= 0 ? `+${formatCurrency(userFairDifference)} pagos` : `${formatCurrency(userFairDifference)} a pagar`}
+                </span>
+              </div>
+            </div>
+
+            {/* Lado Dela */}
+            <div className="rounded-2xl bg-[#fafcfb] border border-[#edf2ee] p-3.5 space-y-2">
+              <div className="flex items-center justify-between font-bold text-[#173d2a]">
+                <span>{partnerNameInput} ({partnerIncomePercent.toFixed(0)}% da renda)</span>
+                <span>{formatCurrency(partnerFixedCostsTotal)} pago</span>
+              </div>
+              <div className="flex items-center justify-between text-[#64736a]">
+                <span>Cota Justa Dela ({partnerIncomePercent.toFixed(0)}% de {formatCurrency(totalFixedCosts)}):</span>
+                <span className="font-bold text-[#173d2a]">{formatCurrency(idealPartnerShare)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-[#8a998f]">Diferença atual:</span>
+                <span className={userFairDifference <= 0 ? 'font-bold text-emerald-700' : 'font-bold text-amber-700'}>
+                  {userFairDifference <= 0 ? `+${formatCurrency(Math.abs(userFairDifference))} pagos` : `${formatCurrency(-userFairDifference)} a pagar`}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ---------------- SEÇÃO DE STATUS DE PAGAMENTOS DO MÊS (PAGO VS PENDENTE) ---------------- */}
+        <div className="mt-6 rounded-3xl border border-[#dfe8e1] bg-white p-5 sm:p-6 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#edf2ee] pb-3 mb-4">
+            <div>
+              <h3 className="text-sm font-bold text-[#173d2a] flex items-center gap-2">
+                <span>⚡</span> Fluxo de Caixa Real do Mês (Pago vs Pendente)
+              </h3>
+              <p className="text-xs text-[#8a998f]">
+                Clique no selo de qualquer conta para alternar rapidamente entre <strong>⏳ Pendente</strong> e <strong>✅ Pago</strong>.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="rounded-full bg-[#edf5ef] border border-[#d8e5dc] px-3 py-1 font-bold text-[#245439]">
+                {paidPercent.toFixed(0)}% Pago
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div className="p-3.5 rounded-2xl bg-[#fafcfb] border border-[#edf2ee]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f]">
+                Total de Contas
+              </span>
+              <p className="text-xl font-black text-[#173d2a] mt-0.5">
+                {formatCurrency(totalFixedCosts)}
+              </p>
+              <p className="text-[10px] text-[#718078] mt-0.5">
+                {allCosts.length} {allCosts.length === 1 ? 'despesa cadastrada' : 'despesas cadastradas'}
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#edf5ef] border border-[#d8e5dc]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                ✅ Já Pago no Mês
+              </span>
+              <p className="text-xl font-black text-emerald-800 mt-0.5">
+                {formatCurrency(paidCostsTotal)}
+              </p>
+              <p className="text-[10px] text-emerald-700 mt-0.5">
+                {allCosts.filter((c) => c.paymentStatus === 'paid').length} contas quitadas
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#fffbeb] border border-[#fef3c7]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                ⏳ Ainda Pendente
+              </span>
+              <p className="text-xl font-black text-amber-800 mt-0.5">
+                {formatCurrency(pendingCostsTotal)}
+              </p>
+              <p className="text-[10px] text-amber-700 mt-0.5">
+                {allCosts.filter((c) => c.paymentStatus !== 'paid').length} contas a vencer
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-[#fafcfb] border border-[#edf2ee]">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f]">
+                Por Método
+              </span>
+              <div className="mt-1 space-y-0.5 text-xs font-semibold text-[#173d2a]">
+                <p>⚡ PIX/Conta: {formatCurrency(pixBoletoTotal)}</p>
+                <p>💳 Cartão: {formatCurrency(creditCardCostsTotal)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Barra de Progresso de Quitação */}
+          <div className="mt-4">
+            <div className="h-2.5 w-full rounded-full bg-[#edf2ee] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#5d9873] transition-all duration-500"
+                style={{ width: `${paidPercent}%` }}
+              />
             </div>
           </div>
         </div>
@@ -482,19 +746,19 @@ export function OrcamentoFamiliarPage({
                       <td className="py-3">{formatCurrency(partnerFixedCostsTotal)} ({partnerPaidPercent.toFixed(0)}%)</td>
                       <td className="py-3 text-right text-[#5d9873]">Em vigor</td>
                     </tr>
-                    <tr>
-                      <td className="py-3">
-                        <span className="font-bold">Divisão Proporcional à Renda</span>
-                        <p className="text-[10px] font-normal text-[#8a998f]">Quem ganha mais paga proporcionalmente mais</p>
+                    <tr className="bg-[#edf5ef]/40">
+                      <td className="py-3 font-bold text-[#173d2a]">
+                        <span>Divisão Proporcional à Renda ({userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)</span>
+                        <p className="text-[10px] font-normal text-[#5a8067]">Mais justa: quem ganha mais paga proporcionalmente mais</p>
                       </td>
-                      <td className="py-3">{formatCurrency(idealUserShare)} ({userIncomePercent.toFixed(0)}%)</td>
-                      <td className="py-3">{formatCurrency(idealPartnerShare)} ({partnerIncomePercent.toFixed(0)}%)</td>
-                      <td className="py-3 text-right text-[#64736a]">
-                        {Math.abs(userDifferenceFromProportional) < 50
-                          ? 'Perfeitamente equilibrado'
-                          : userDifferenceFromProportional > 0
-                          ? `Você paga +${formatCurrency(userDifferenceFromProportional)}`
-                          : `${partnerNameInput} paga +${formatCurrency(Math.abs(userDifferenceFromProportional))}`}
+                      <td className="py-3 text-[#173d2a] font-bold">{formatCurrency(idealUserShare)} ({userIncomePercent.toFixed(0)}%)</td>
+                      <td className="py-3 text-[#173d2a] font-bold">{formatCurrency(idealPartnerShare)} ({partnerIncomePercent.toFixed(0)}%)</td>
+                      <td className="py-3 text-right font-bold">
+                        {Math.abs(userFairDifference) < 1
+                          ? '✓ 100% Equilibrado'
+                          : userFairDifference > 0
+                          ? `Ela transfere ${formatCurrency(userFairDifference)}`
+                          : `Você transfere ${formatCurrency(Math.abs(userFairDifference))}`}
                       </td>
                     </tr>
                     <tr>
@@ -616,7 +880,7 @@ export function OrcamentoFamiliarPage({
                 <span>📋</span> Contas e Despesas do Mês Atual
               </h2>
               <p className="text-xs text-[#8a998f]">
-                Ajuste os valores previstos para este mês. Alterações feitas aqui <strong>não modificam</strong> sua tela mestra de Custos Fixos.
+                Ajuste os valores, marque o status de pagamento e adicione despesas. Alterações feitas aqui <strong>não modificam</strong> sua tela mestra de Custos Fixos.
               </p>
             </div>
           </div>
@@ -657,62 +921,103 @@ export function OrcamentoFamiliarPage({
                   </p>
                 ) : (
                   <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                    {orcamentoData.userFixedCosts.map((cost) => (
-                      <div
-                        key={cost.id}
-                        className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#fafcfb] border border-[#edf2ee] hover:border-[#d8e1da] transition"
-                      >
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-[#173d2a] truncate">
-                            {cost.name}
-                          </h4>
-                          <span className="text-[10px] text-[#8a998f]">
-                            {cost.category || 'Geral'}
-                          </span>
-                        </div>
+                    {orcamentoData.userFixedCosts.map((cost) => {
+                      const isPaid = cost.paymentStatus === 'paid'
+                      const isCard = cost.paymentMethod === 'credit_card'
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* Edição inline do valor */}
-                          <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
-                            <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              defaultValue={formatMoneyInput(cost.amount)}
-                              onBlur={(e) => {
-                                const val = parseMoney(e.target.value)
-                                handleInlineUpdateAmount(cost.id, val, 'user')
-                              }}
-                              className="w-20 text-xs font-bold text-[#173d2a] outline-none"
-                            />
+                      return (
+                        <div
+                          key={cost.id}
+                          className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition ${
+                            isPaid
+                              ? 'bg-[#f4f9f5] border-[#d8e5dc]'
+                              : 'bg-[#fafcfb] border-[#edf2ee] hover:border-[#d8e1da]'
+                          }`}
+                        >
+                          <div className="min-w-0 flex items-center gap-2.5">
+                            {/* Toggle de 1 clique para status Pago */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCostStatus(cost.id, 'user')}
+                              className={`grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold transition cursor-pointer ${
+                                isPaid
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'border border-[#d8e1da] text-[#8a998f] hover:border-emerald-500 hover:text-emerald-700 bg-white'
+                              }`}
+                              title={isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+                            >
+                              {isPaid ? '✓' : ''}
+                            </button>
+
+                            <div className="min-w-0">
+                              <h4
+                                className={`text-xs font-bold truncate ${
+                                  isPaid ? 'line-through text-[#64736a]' : 'text-[#173d2a]'
+                                }`}
+                              >
+                                {cost.name}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-[#8a998f]">
+                                  {cost.category || 'Geral'}
+                                </span>
+                                <span className="text-[10px] text-[#b7d7c5]">•</span>
+                                <span
+                                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                                    isCard
+                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  }`}
+                                >
+                                  {isCard ? '💳 Cartão' : '⚡ PIX'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCostModalState({
-                                isOpen: true,
-                                target: 'user',
-                                costToEdit: cost,
-                              })
-                            }
-                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                            title="Editar"
-                          >
-                            ✏️
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Edição inline do valor */}
+                            <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
+                              <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                defaultValue={formatMoneyInput(cost.amount)}
+                                onBlur={(e) => {
+                                  const val = parseMoney(e.target.value)
+                                  handleInlineUpdateAmount(cost.id, val, 'user')
+                                }}
+                                className="w-20 text-xs font-bold text-[#173d2a] outline-none"
+                              />
+                            </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCostItem(cost.id, 'user')}
-                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-                            title="Remover do mês"
-                          >
-                            ✕
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCostModalState({
+                                  isOpen: true,
+                                  target: 'user',
+                                  costToEdit: cost,
+                                })
+                              }
+                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCostItem(cost.id, 'user')}
+                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                              title="Remover do mês"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -768,62 +1073,103 @@ export function OrcamentoFamiliarPage({
                   </div>
                 ) : (
                   <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                    {orcamentoData.partnerFixedCosts.map((cost) => (
-                      <div
-                        key={cost.id}
-                        className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-[#fafcfb] border border-[#edf2ee] hover:border-[#d8e1da] transition"
-                      >
-                        <div className="min-w-0">
-                          <h4 className="text-xs font-bold text-[#173d2a] truncate">
-                            {cost.name}
-                          </h4>
-                          <span className="text-[10px] text-[#8a998f]">
-                            {cost.category || 'Geral'}
-                          </span>
-                        </div>
+                    {orcamentoData.partnerFixedCosts.map((cost) => {
+                      const isPaid = cost.paymentStatus === 'paid'
+                      const isCard = cost.paymentMethod === 'credit_card'
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {/* Edição inline do valor */}
-                          <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
-                            <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              defaultValue={formatMoneyInput(cost.amount)}
-                              onBlur={(e) => {
-                                const val = parseMoney(e.target.value)
-                                handleInlineUpdateAmount(cost.id, val, 'partner')
-                              }}
-                              className="w-20 text-xs font-bold text-[#173d2a] outline-none"
-                            />
+                      return (
+                        <div
+                          key={cost.id}
+                          className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition ${
+                            isPaid
+                              ? 'bg-[#f4f9f5] border-[#d8e5dc]'
+                              : 'bg-[#fafcfb] border-[#edf2ee] hover:border-[#d8e1da]'
+                          }`}
+                        >
+                          <div className="min-w-0 flex items-center gap-2.5">
+                            {/* Toggle de 1 clique para status Pago */}
+                            <button
+                              type="button"
+                              onClick={() => handleToggleCostStatus(cost.id, 'partner')}
+                              className={`grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold transition cursor-pointer ${
+                                isPaid
+                                  ? 'bg-emerald-600 text-white shadow-2xs'
+                                  : 'border border-[#d8e1da] text-[#8a998f] hover:border-emerald-500 hover:text-emerald-700 bg-white'
+                              }`}
+                              title={isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
+                            >
+                              {isPaid ? '✓' : ''}
+                            </button>
+
+                            <div className="min-w-0">
+                              <h4
+                                className={`text-xs font-bold truncate ${
+                                  isPaid ? 'line-through text-[#64736a]' : 'text-[#173d2a]'
+                                }`}
+                              >
+                                {cost.name}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[10px] text-[#8a998f]">
+                                  {cost.category || 'Geral'}
+                                </span>
+                                <span className="text-[10px] text-[#b7d7c5]">•</span>
+                                <span
+                                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
+                                    isCard
+                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                  }`}
+                                >
+                                  {isCard ? '💳 Cartão' : '⚡ PIX'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setCostModalState({
-                                isOpen: true,
-                                target: 'partner',
-                                costToEdit: cost,
-                              })
-                            }
-                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                            title="Editar"
-                          >
-                            ✏️
-                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Edição inline do valor */}
+                            <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
+                              <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                defaultValue={formatMoneyInput(cost.amount)}
+                                onBlur={(e) => {
+                                  const val = parseMoney(e.target.value)
+                                  handleInlineUpdateAmount(cost.id, val, 'partner')
+                                }}
+                                className="w-20 text-xs font-bold text-[#173d2a] outline-none"
+                              />
+                            </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCostItem(cost.id, 'partner')}
-                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-                            title="Remover do mês"
-                          >
-                            ✕
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setCostModalState({
+                                  isOpen: true,
+                                  target: 'partner',
+                                  costToEdit: cost,
+                                })
+                              }
+                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                              title="Editar"
+                            >
+                              ✏️
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCostItem(cost.id, 'partner')}
+                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                              title="Remover do mês"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -840,6 +1186,38 @@ export function OrcamentoFamiliarPage({
           target={costModalState.target}
           partnerName={partnerNameInput}
         />
+
+        {/* Modal de Confirmação para Zerar Contas do Mês */}
+        {isClearModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#173d2a]/40 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl border border-[#e3eae4] bg-white p-6 shadow-2xl">
+              <h3 className="text-base font-bold text-[#173d2a]">
+                Zerar Contas do Mês Atual?
+              </h3>
+              <p className="mt-2 text-xs sm:text-sm text-[#64736a] leading-relaxed">
+                Esta ação vai limpar todas as contas cadastradas neste orçamento mensal e zerar o valor de cartões.
+                Suas listas mestras de Custos Fixos e Contas Bancárias <strong>não</strong> serão afetadas.
+              </p>
+
+              <div className="mt-6 flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsClearModalOpen(false)}
+                  className="rounded-2xl border border-[#d8e1da] px-4 py-2.5 text-xs font-semibold text-[#64736a] hover:bg-[#f7f8f5] cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClearAllCosts}
+                  className="rounded-2xl bg-rose-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-rose-700 transition cursor-pointer shadow-sm"
+                >
+                  Sim, Zerar Orçamento
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   )

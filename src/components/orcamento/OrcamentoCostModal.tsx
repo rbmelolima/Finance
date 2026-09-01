@@ -56,6 +56,12 @@ function OrcamentoCostForm({
     costToEdit?.amount ? formatMoneyInput(costToEdit.amount) : ''
   )
   const [category, setCategory] = useState(costToEdit?.category ?? 'Habitação')
+  const [paymentMethod, setPaymentMethod] = useState<'pix_boleto' | 'credit_card'>(
+    costToEdit?.paymentMethod ?? 'pix_boleto'
+  )
+  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>(
+    costToEdit?.paymentStatus ?? 'pending'
+  )
   const [errors, setErrors] = useState<{ name?: string; amount?: string }>({})
 
   function validate() {
@@ -83,6 +89,8 @@ function OrcamentoCostForm({
         name: name.trim(),
         amount: amt,
         category,
+        paymentMethod,
+        paymentStatus,
       },
       target
     )
@@ -163,6 +171,69 @@ function OrcamentoCostForm({
           {errors.amount && (
             <p className="mt-1 text-xs font-medium text-rose-600">⚠ {errors.amount}</p>
           )}
+        </div>
+
+        {/* Forma de Pagamento e Status */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-semibold text-[#30483a] mb-1.5">
+              Forma de Pagamento
+            </label>
+            <div className="flex rounded-xl bg-[#f7f8f5] border border-[#e3eae4] p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('pix_boleto')}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                  paymentMethod === 'pix_boleto'
+                    ? 'bg-white text-[#173d2a] shadow-xs'
+                    : 'text-[#64736a]'
+                }`}
+              >
+                ⚡ PIX / Conta
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMethod('credit_card')}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                  paymentMethod === 'credit_card'
+                    ? 'bg-white text-purple-800 shadow-xs'
+                    : 'text-[#64736a]'
+                }`}
+              >
+                💳 Cartão
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-[#30483a] mb-1.5">
+              Status do Pagamento
+            </label>
+            <div className="flex rounded-xl bg-[#f7f8f5] border border-[#e3eae4] p-1 gap-1">
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('pending')}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                  paymentStatus === 'pending'
+                    ? 'bg-white text-amber-800 shadow-xs'
+                    : 'text-[#64736a]'
+                }`}
+              >
+                ⏳ Pendente
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentStatus('paid')}
+                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
+                  paymentStatus === 'paid'
+                    ? 'bg-white text-emerald-800 shadow-xs'
+                    : 'text-[#64736a]'
+                }`}
+              >
+                ✅ Pago
+              </button>
+            </div>
+          </div>
         </div>
 
         <div>

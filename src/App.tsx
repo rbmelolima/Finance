@@ -182,7 +182,7 @@ function App() {
   function handleResetOrcamentoDefaults() {
     const freshData: OrcamentoFamiliarData = {
       ...orcamentoData,
-      userIncome: profile?.personalIncome || orcamentoData.userIncome,
+      userIncome: profile?.personalIncome || 0,
       userFixedCosts: fixedCosts.map((c) => ({
         id: c.id,
         name: c.name,
@@ -190,6 +190,7 @@ function App() {
         category: c.category,
       })),
       userCreditCardsAmount: creditCards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0),
+      updatedAt: new Date().toISOString(),
     }
     saveOrcamentoFamiliar(freshData)
     setOrcamentoData(freshData)
@@ -320,6 +321,7 @@ function App() {
 
           {screen === 'orcamento-familiar' && (
             <OrcamentoFamiliarPage
+              key={orcamentoData.updatedAt || 'orcamento'}
               orcamentoData={orcamentoData}
               profile={profile}
               creditCards={creditCards}

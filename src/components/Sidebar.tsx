@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Screen } from '../types/finance'
+import { formatCurrency } from '../utils/currency'
 import { Logo } from './Logo'
 
 interface SidebarProps {
@@ -62,7 +63,7 @@ export function Sidebar({
 
   const formattedBalance =
     netBalance !== undefined
-      ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(netBalance)
+      ? formatCurrency(netBalance)
       : null
 
   const isNetPositive = (netBalance ?? 0) >= 0

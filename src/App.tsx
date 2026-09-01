@@ -300,11 +300,11 @@ function Landing({
               <div className="mt-5 grid grid-cols-2 gap-3">
                 <div className="rounded-2xl bg-[#f7f8f5] p-4">
                   <p className="text-xs text-[#8a998f]">Contas</p>
-                  <p className="mt-2 font-semibold text-[#30483a]">R$ 12.500</p>
+                  <p className="mt-2 font-semibold text-[#30483a]">R$ 12.500,00</p>
                 </div>
                 <div className="rounded-2xl bg-[#f7f8f5] p-4">
                   <p className="text-xs text-[#8a998f]">Custos Fixos</p>
-                  <p className="mt-2 font-semibold text-[#30483a]">R$ 4.080</p>
+                  <p className="mt-2 font-semibold text-[#30483a]">R$ 4.080,00</p>
                 </div>
               </div>
             </div>

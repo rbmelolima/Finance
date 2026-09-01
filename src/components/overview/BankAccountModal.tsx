@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { AccountType, BankAccount } from '../../types/finance'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 import { BankLogo } from '../common/BankLogo'
 import { BankSelectModal } from '../common/BankSelectModal'
 
@@ -50,13 +51,15 @@ function BankAccountForm({ accountToEdit, onClose, onSave }: BankAccountFormProp
   const [bankName, setBankName] = useState(() => accountToEdit?.bankName ?? 'Nubank')
   const [accountName, setAccountName] = useState(() => accountToEdit?.accountName ?? 'Conta Corrente')
   const [accountType, setAccountType] = useState<AccountType>(() => accountToEdit?.accountType ?? 'corrente')
-  const [balance, setBalance] = useState(() => (accountToEdit ? String(accountToEdit.balance) : ''))
+  const [balance, setBalance] = useState(() =>
+    accountToEdit ? formatMoneyInput(accountToEdit.balance) : ''
+  )
   const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
   const [error, setError] = useState('')
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const cleanBalance = parseFloat(balance.replace(',', '.'))
+    const cleanBalance = parseMoney(balance)
 
     if (isNaN(cleanBalance)) {
       setError('Por favor, informe um valor de saldo válido.')
@@ -75,10 +78,16 @@ function BankAccountForm({ accountToEdit, onClose, onSave }: BankAccountFormProp
     onClose()
   }
 
+  function handleBalanceBlur() {
+    if (balance.trim()) {
+      setBalance(formatMoneyInput(balance))
+    }
+  }
+
   return (
     <>
       <div
-        className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfe8e1] overflow-hidden"
+        className="w-full max-w-md max-h-[90vh] flex flex-col rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfe8e1] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -100,7 +109,7 @@ function BankAccountForm({ accountToEdit, onClose, onSave }: BankAccountFormProp
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4 overflow-y-auto pr-1">
           {/* Escolha do Banco com Logo */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
@@ -180,6 +189,7 @@ function BankAccountForm({ accountToEdit, onClose, onSave }: BankAccountFormProp
                 inputMode="decimal"
                 value={balance}
                 onChange={(e) => setBalance(e.target.value)}
+                onBlur={handleBalanceBlur}
                 placeholder="0,00"
                 className="w-full rounded-2xl border border-[#d8e1da] bg-white pl-11 pr-4 py-3 text-lg font-bold text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
               />

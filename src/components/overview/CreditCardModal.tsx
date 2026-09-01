@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { CreditCard } from '../../types/finance'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 import { BankLogo } from '../common/BankLogo'
 import { BankSelectModal } from '../common/BankSelectModal'
 
@@ -42,7 +43,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
   const [bankName, setBankName] = useState(() => cardToEdit?.bankName ?? 'Nubank')
   const [cardName, setCardName] = useState(() => cardToEdit?.cardName ?? 'Cartão Principal')
   const [invoiceAmount, setInvoiceAmount] = useState(() =>
-    cardToEdit ? String(cardToEdit.invoiceAmount) : ''
+    cardToEdit ? formatMoneyInput(cardToEdit.invoiceAmount) : ''
   )
   const [closingDay, setClosingDay] = useState(() =>
     cardToEdit?.closingDay ? String(cardToEdit.closingDay) : '3'
@@ -50,13 +51,15 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
   const [dueDay, setDueDay] = useState(() =>
     cardToEdit?.dueDay ? String(cardToEdit.dueDay) : '10'
   )
-  const [limit, setLimit] = useState(() => (cardToEdit?.limit ? String(cardToEdit.limit) : ''))
+  const [limit, setLimit] = useState(() =>
+    cardToEdit?.limit ? formatMoneyInput(cardToEdit.limit) : ''
+  )
   const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
   const [error, setError] = useState('')
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const cleanInvoice = parseFloat(invoiceAmount.replace(',', '.'))
+    const cleanInvoice = parseMoney(invoiceAmount)
 
     if (isNaN(cleanInvoice)) {
       setError('Por favor, informe o valor da fatura a pagar.')
@@ -75,7 +78,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
       return
     }
 
-    const parsedLimit = limit ? parseFloat(limit.replace(',', '.')) : undefined
+    const parsedLimit = limit ? parseMoney(limit) : undefined
 
     onSave({
       id: cardToEdit?.id,
@@ -89,6 +92,18 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
     })
 
     onClose()
+  }
+
+  function handleInvoiceBlur() {
+    if (invoiceAmount.trim()) {
+      setInvoiceAmount(formatMoneyInput(invoiceAmount))
+    }
+  }
+
+  function handleLimitBlur() {
+    if (limit.trim()) {
+      setLimit(formatMoneyInput(limit))
+    }
   }
 
   return (
@@ -170,6 +185,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
                 inputMode="decimal"
                 value={invoiceAmount}
                 onChange={(e) => setInvoiceAmount(e.target.value)}
+                onBlur={handleInvoiceBlur}
                 placeholder="0,00"
                 className="w-full rounded-2xl border border-[#d8e1da] bg-white pl-11 pr-4 py-3 text-lg font-bold text-rose-700 placeholder:text-[#a1afa6] outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 transition"
               />
@@ -233,7 +249,8 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
               inputMode="decimal"
               value={limit}
               onChange={(e) => setLimit(e.target.value)}
-              placeholder="Ex: 15.000"
+              onBlur={handleLimitBlur}
+              placeholder="0,00"
               className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-2.5 text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
             />
           </div>

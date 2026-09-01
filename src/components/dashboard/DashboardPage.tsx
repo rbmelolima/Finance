@@ -1,5 +1,6 @@
 import { calculateOverviewTotals, calculatePatrimonioTotals } from '../../services/storage'
 import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Screen } from '../../types/finance'
+import { formatCurrency } from '../../utils/currency'
 
 interface DashboardPageProps {
   name: string
@@ -10,7 +11,6 @@ interface DashboardPageProps {
   onNavigate: (screen: Screen) => void
   onOpenNewFixedCost: () => void
 }
-
 
 const CATEGORY_COLORS: string[] = [
   '#173d2a',
@@ -32,7 +32,6 @@ export function DashboardPage({
   onNavigate,
   onOpenNewFixedCost,
 }: DashboardPageProps) {
-
   const hasUSD = fixedCosts.some((c) => c.currency === 'USD')
 
   // Custos fixos
@@ -48,38 +47,24 @@ export function DashboardPage({
 
   const yearlyUSD = monthlyUSD * 12
 
-  const formattedMonthlyBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(monthlyBRL)
-  const formattedYearlyBRL = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(yearlyBRL)
+  const formattedMonthlyBRL = formatCurrency(monthlyBRL, 'BRL')
+  const formattedYearlyBRL = formatCurrency(yearlyBRL, 'BRL')
 
-  const formattedMonthlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(monthlyUSD)
-  const formattedYearlyUSD = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(yearlyUSD)
+  const formattedMonthlyUSD = formatCurrency(monthlyUSD, 'USD')
+  const formattedYearlyUSD = formatCurrency(yearlyUSD, 'USD')
 
   // Totais da Carteira (Contas vs Cartões)
   const carteiraTotals = calculateOverviewTotals(bankAccounts || [], creditCards || [])
-  const formattedNetRealBalance = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    carteiraTotals.netRealBalance
-  )
-  const formattedAccountsMoney = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    carteiraTotals.totalMoneyInAccounts
-  )
-  const formattedCardsAmount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    carteiraTotals.totalCreditCardsToPay
-  )
-  const formattedDailyAvailable = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    carteiraTotals.dailyAvailable
-  )
+  const formattedNetRealBalance = formatCurrency(carteiraTotals.netRealBalance)
+  const formattedAccountsMoney = formatCurrency(carteiraTotals.totalMoneyInAccounts)
+  const formattedCardsAmount = formatCurrency(carteiraTotals.totalCreditCardsToPay)
+  const formattedDailyAvailable = formatCurrency(carteiraTotals.dailyAvailable)
 
   // Totais do Patrimônio
   const patrimonioTotals = calculatePatrimonioTotals(patrimonio)
-  const formattedPatrimonioLiquido = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    patrimonioTotals.patrimonioLiquido
-  )
-  const formattedAtivos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    patrimonioTotals.totalAtivos
-  )
-  const formattedPassivos = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(
-    patrimonioTotals.totalPassivos
-  )
+  const formattedPatrimonioLiquido = formatCurrency(patrimonioTotals.patrimonioLiquido)
+  const formattedAtivos = formatCurrency(patrimonioTotals.totalAtivos)
+  const formattedPassivos = formatCurrency(patrimonioTotals.totalPassivos)
 
   // Distribuição rápida de categorias
   const categorySummary = (() => {
@@ -104,13 +89,13 @@ export function DashboardPage({
 
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
-      <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10 lg:py-14">
-        <p className="text-sm font-medium text-[#71917d]">Bom te ver por aqui, {name}.</p>
-        <h1 className="mt-2 text-4xl font-semibold tracking-[-0.05em] text-[#173d2a]">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 lg:px-10 lg:py-14">
+        <p className="text-xs sm:text-sm font-medium text-[#71917d]">Bom te ver por aqui, {name}.</p>
+        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.05em] text-[#173d2a]">
           Sua visão financeira
         </h1>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-3">
+        <div className="mt-8 sm:mt-10 grid gap-5 md:grid-cols-3">
           {/* Card Carteira Principal (Saldo Livre Imediato) */}
           <article className="rounded-3xl bg-[#173d2a] p-6 text-white md:col-span-2 shadow-sm">
             <div className="flex items-center justify-between">
@@ -125,10 +110,10 @@ export function DashboardPage({
                 Abrir Carteira →
               </button>
             </div>
-            <p className="mt-4 text-4xl font-extrabold tracking-[-0.05em]">
+            <p className="mt-4 text-3xl sm:text-4xl font-extrabold tracking-[-0.05em]">
               {formattedNetRealBalance}
             </p>
-            <div className="mt-5 flex flex-wrap items-center gap-4 border-t border-white/10 pt-4 text-xs text-[#b7d7c5]">
+            <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-4 border-t border-white/10 pt-4 text-xs text-[#b7d7c5]">
               <span>Dinheiro em Conta: <strong className="text-white">{formattedAccountsMoney}</strong></span>
               <span>•</span>
               <span>Faturas a Pagar: <strong className="text-white">{formattedCardsAmount}</strong></span>
@@ -158,7 +143,7 @@ export function DashboardPage({
           </article>
         </div>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-3">
+        <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {/* Card Contas Bancárias */}
           <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
             <div className="flex items-center justify-between">
@@ -215,10 +200,8 @@ export function DashboardPage({
             </div>
           </article>
 
-
-
           {/* Card Custos Fixos Integrado */}
-          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
+          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5] md:col-span-2 lg:col-span-1">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-[#30483a]">Custos fixos</h2>
               <button

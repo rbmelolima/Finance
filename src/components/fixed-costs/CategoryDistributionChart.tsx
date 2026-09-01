@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Currency, FixedCost } from '../../types/finance'
+import { formatCurrency } from '../../utils/currency'
 
 interface CategoryDistributionChartProps {
   fixedCosts: FixedCost[]
@@ -94,10 +95,7 @@ export function CategoryDistributionChart({
   }, [fixedCosts, activeCurrency])
 
   function formatMoney(amount: number): string {
-    if (activeCurrency === 'BRL') {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount)
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+    return formatCurrency(amount, activeCurrency)
   }
 
   if (categoryData.items.length === 0) {

@@ -2,19 +2,12 @@ import type { FormEvent } from 'react'
 import { useState } from 'react'
 import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 
 interface FixedCostModalProps {
   isOpen: boolean
   onClose: () => void
-  onSave: (data: {
-    id?: string
-    name: string
-    description?: string
-    category: string
-    amount: number
-    currency: Currency
-    recurrence: Recurrence
-  }) => void
+  onSave: (cost: Omit<FixedCost, 'id' | 'createdAt'> & { id?: string }) => void
   costToEdit?: FixedCost | null
 }
 
@@ -22,7 +15,7 @@ export function FixedCostModal({ isOpen, onClose, onSave, costToEdit }: FixedCos
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#173d2a]/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#173d2a]/40 p-4 backdrop-blur-xs animate-in fade-in duration-200">
       <FixedCostForm
         key={costToEdit?.id ?? 'new'}
         costToEdit={costToEdit}
@@ -36,15 +29,7 @@ export function FixedCostModal({ isOpen, onClose, onSave, costToEdit }: FixedCos
 interface FixedCostFormProps {
   costToEdit?: FixedCost | null
   onClose: () => void
-  onSave: (data: {
-    id?: string
-    name: string
-    description?: string
-    category: string
-    amount: number
-    currency: Currency
-    recurrence: Recurrence
-  }) => void
+  onSave: (cost: Omit<FixedCost, 'id' | 'createdAt'> & { id?: string }) => void
 }
 
 function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
@@ -54,8 +39,8 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
   const [category, setCategory] = useState(costToEdit?.category ?? (categories[0] || 'Assinatura'))
   const [isCreatingCategory, setIsCreatingCategory] = useState(false)
   const [newCategoryName, setNewCategoryName] = useState('')
-  const [amountStr, setAmountStr] = useState(
-    costToEdit ? costToEdit.amount.toString().replace('.', ',') : ''
+  const [amountStr, setAmountStr] = useState(() =>
+    costToEdit ? formatMoneyInput(costToEdit.amount) : ''
   )
   const [currency, setCurrency] = useState<Currency>(costToEdit?.currency ?? 'BRL')
   const [recurrence, setRecurrence] = useState<Recurrence>(costToEdit?.recurrence ?? 'monthly')
@@ -72,6 +57,12 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
     setIsCreatingCategory(false)
   }
 
+  function handleAmountBlur() {
+    if (amountStr.trim()) {
+      setAmountStr(formatMoneyInput(amountStr))
+    }
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -81,8 +72,7 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
       return
     }
 
-    const cleanAmount = amountStr.replace(/\./g, '').replace(',', '.')
-    const parsedAmount = parseFloat(cleanAmount)
+    const parsedAmount = parseMoney(amountStr)
 
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
       setError('Por favor, informe um valor válido maior que zero.')
@@ -108,7 +98,7 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
 
   return (
     <div
-      className="w-full max-w-lg overflow-hidden rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-2xl transition-all sm:p-8"
+      className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-2xl transition-all sm:p-8"
       role="dialog"
       aria-modal="true"
     >
@@ -138,7 +128,7 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+      <form onSubmit={handleSubmit} className="mt-5 space-y-4 overflow-y-auto pr-1">
         {/* Nome */}
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-[#436350]">
@@ -290,9 +280,11 @@ function FixedCostForm({ costToEdit, onClose, onSave }: FixedCostFormProps) {
               </span>
               <input
                 type="text"
+                inputMode="decimal"
                 required
                 value={amountStr}
                 onChange={(e) => setAmountStr(e.target.value)}
+                onBlur={handleAmountBlur}
                 placeholder="0,00"
                 className="w-full rounded-2xl border border-[#d8e1da] bg-[#fbfcfb] py-3 pl-12 pr-4 text-sm font-semibold text-[#173d2a] outline-none transition placeholder:text-[#a1afa6] focus:border-[#5d9873] focus:bg-white focus:ring-4 focus:ring-[#b7d7c5]/40"
               />

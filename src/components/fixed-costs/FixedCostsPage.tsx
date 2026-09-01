@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
+import { formatCurrency } from '../../utils/currency'
 import { CategoryDistributionChart } from './CategoryDistributionChart'
 import { FixedCostModal } from './FixedCostModal'
 
@@ -88,13 +89,6 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
     })
   }, [fixedCosts, searchTerm, recurrenceFilter, currencyFilter, categoryFilter])
 
-  function formatCurrency(amount: number, currency: Currency): string {
-    if (currency === 'BRL') {
-      return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount)
-    }
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
-  }
-
   function handleOpenCreate() {
     setEditingCost(null)
     setIsModalOpen(true)
@@ -114,7 +108,7 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
 
   return (
     <main className="min-h-screen bg-[#f7f8f5] pb-24">
-      <div className="mx-auto max-w-6xl px-6 pt-10 lg:px-10">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 sm:pt-10 lg:px-10">
         {/* Cabeçalho da Página */}
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
@@ -124,7 +118,7 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
             <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-[#173d2a] sm:text-4xl">
               Custos Fixos
             </h1>
-            <p className="mt-1 text-sm text-[#64736a]">
+            <p className="mt-1 text-xs sm:text-sm text-[#64736a]">
               Acompanhe suas assinaturas, contas essenciais e compromissos recorrentes categorizados.
             </p>
           </div>

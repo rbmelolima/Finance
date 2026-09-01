@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { calculateCarteiraTotals, getCardTimelineStatus } from '../../services/storage'
 import type { BankAccount, CreditCard, Screen } from '../../types/finance'
+import { formatCurrency, formatMoneyInput, parseMoney } from '../../utils/currency'
 import { BankLogo } from '../common/BankLogo'
 import { BankAccountModal } from './BankAccountModal'
 import { CreditCardModal } from './CreditCardModal'
@@ -55,40 +56,23 @@ export function OverviewPage({
 
   const totals = calculateCarteiraTotals(bankAccounts, creditCards)
 
-  const formattedMoneyInAccounts = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(totals.totalMoneyInAccounts)
+  const formattedMoneyInAccounts = formatCurrency(totals.totalMoneyInAccounts)
+  const formattedCreditCardsToPay = formatCurrency(totals.totalCreditCardsToPay)
+  const formattedNetRealBalance = formatCurrency(totals.netRealBalance)
 
-  const formattedCreditCardsToPay = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(totals.totalCreditCardsToPay)
-
-  const formattedNetRealBalance = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(totals.netRealBalance)
-
-  const formattedDailyAvailableMonth = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(totals.dailyAvailable)
+  const formattedDailyAvailableMonth = formatCurrency(totals.dailyAvailable)
 
   const formattedDailyAvailableClosing = totals.dailyAvailableUntilClosing !== null
-    ? new Intl.NumberFormat('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-      }).format(totals.dailyAvailableUntilClosing)
+    ? formatCurrency(totals.dailyAvailableUntilClosing)
     : formattedDailyAvailableMonth
 
   function handleStartEditBalance(account: BankAccount) {
     setEditingBalanceId(account.id)
-    setInlineBalanceValue(String(account.balance))
+    setInlineBalanceValue(formatMoneyInput(account.balance))
   }
 
   function handleSaveInlineBalance(id: string) {
-    const val = parseFloat(inlineBalanceValue.replace(',', '.'))
+    const val = parseMoney(inlineBalanceValue)
     if (!isNaN(val)) {
       onUpdateAccountBalance(id, val)
     }
@@ -97,11 +81,11 @@ export function OverviewPage({
 
   function handleStartEditInvoice(card: CreditCard) {
     setEditingInvoiceId(card.id)
-    setInlineInvoiceValue(String(card.invoiceAmount))
+    setInlineInvoiceValue(formatMoneyInput(card.invoiceAmount))
   }
 
   function handleSaveInlineInvoice(id: string) {
-    const val = parseFloat(inlineInvoiceValue.replace(',', '.'))
+    const val = parseMoney(inlineInvoiceValue)
     if (!isNaN(val)) {
       onUpdateCardInvoice(id, val)
     }
@@ -124,7 +108,7 @@ export function OverviewPage({
 
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
-      <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-12">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6 sm:py-8 lg:px-10 lg:py-12">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -476,10 +460,7 @@ export function OverviewPage({
               ) : (
                 bankAccounts.map((account) => {
                   const isEditingThis = editingBalanceId === account.id
-                  const formattedBalance = new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(account.balance)
+                  const formattedBalance = formatCurrency(account.balance)
 
                   return (
                     <div
@@ -628,10 +609,7 @@ export function OverviewPage({
               ) : (
                 creditCards.map((card) => {
                   const isEditingThis = editingInvoiceId === card.id
-                  const formattedInvoice = new Intl.NumberFormat('pt-BR', {
-                    style: 'currency',
-                    currency: 'BRL',
-                  }).format(card.invoiceAmount)
+                  const formattedInvoice = formatCurrency(card.invoiceAmount)
 
                   const timeline = getCardTimelineStatus(card, totals.currentDay, totals.totalDaysInMonth)
 

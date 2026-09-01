@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { calculateCarteiraTotals, getCardTimelineStatus } from '../../services/storage'
 import type { BankAccount, CreditCard, Screen } from '../../types/finance'
-import { formatCurrency, formatMoneyInput, parseMoney } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 import { BankLogo } from '../common/BankLogo'
 import { BankAccountModal } from './BankAccountModal'
 import { CreditCardModal } from './CreditCardModal'
@@ -37,6 +39,7 @@ export function OverviewPage({
   onUpdateCardInvoice,
   onNavigate,
 }: OverviewPageProps) {
+  const { formatCurrency } = usePrivacy()
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
   const [editingAccount, setEditingAccount] = useState<BankAccount | null>(null)
 
@@ -123,7 +126,8 @@ export function OverviewPage({
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <PrivacyToggle variant="pill" />
             <button
               onClick={() => {
                 setEditingAccount(null)

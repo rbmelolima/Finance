@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FixedCost, ProductSimulation, Profile, SelicInfo } from '../../types/finance'
-import { formatCurrency, formatMoneyInput, maskMoneyInput, parseMoney } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
+import { formatMoneyInput, maskMoneyInput, parseMoney } from '../../utils/currency'
 import {
   calculateCdiYields,
   deleteSimulationItem,
@@ -20,6 +22,7 @@ export function QuantoCustaPage({
   fixedCosts,
   onSaveProfile,
 }: QuantoCustaPageProps) {
+  const { formatCurrency } = usePrivacy()
   // Configuração Base (Renda e Horas de Trabalho)
   const [incomeStr, setIncomeStr] = useState(() =>
     profile?.personalIncome ? formatMoneyInput(profile.personalIncome) : '5.000,00'
@@ -207,23 +210,27 @@ export function QuantoCustaPage({
             </div>
           </div>
 
-          {/* Badge Selic em Tempo Real */}
-          <div className="flex items-center gap-2 self-start rounded-2xl border border-[#d8e5dc] bg-white px-3.5 py-2 text-xs shadow-xs sm:self-auto">
-            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <div>
-              <span className="font-semibold text-[#173d2a]">
-                Selic Hoje:{' '}
-                {isLoadingSelic ? (
-                  <span className="text-[#8a998f]">carregando...</span>
-                ) : (
-                  <span className="text-emerald-700 font-bold">
-                    {currentSelicRate.toFixed(2).replace('.', ',')}% a.a.
-                  </span>
+          {/* Badge Selic e Botão Privacidade */}
+          <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap self-start sm:self-auto">
+            <PrivacyToggle variant="pill" />
+
+            <div className="flex items-center gap-2 rounded-2xl border border-[#d8e5dc] bg-white px-3.5 py-2 text-xs shadow-xs">
+              <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+              <div>
+                <span className="font-semibold text-[#173d2a]">
+                  Selic Hoje:{' '}
+                  {isLoadingSelic ? (
+                    <span className="text-[#8a998f]">carregando...</span>
+                  ) : (
+                    <span className="text-emerald-700 font-bold">
+                      {currentSelicRate.toFixed(2).replace('.', ',')}% a.a.
+                    </span>
+                  )}
+                </span>
+                {selicInfo?.rateDate && (
+                  <span className="ml-1 text-[10px] text-[#8a998f]">({selicInfo.rateDate})</span>
                 )}
-              </span>
-              {selicInfo?.rateDate && (
-                <span className="ml-1 text-[10px] text-[#8a998f]">({selicInfo.rateDate})</span>
-              )}
+              </div>
             </div>
           </div>
         </header>

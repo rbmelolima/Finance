@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { getCategories } from '../../services/storage'
 import type { Currency, FixedCost, Recurrence } from '../../types/finance'
-import { formatCurrency } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
 import { CategoryDistributionChart } from './CategoryDistributionChart'
 import { FixedCostModal } from './FixedCostModal'
 
@@ -12,6 +13,7 @@ interface FixedCostsPageProps {
 }
 
 export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCostsPageProps) {
+  const { formatCurrency } = usePrivacy()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingCost, setEditingCost] = useState<FixedCost | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
@@ -123,13 +125,16 @@ export function FixedCostsPage({ fixedCosts, onSaveCost, onDeleteCost }: FixedCo
             </p>
           </div>
 
-          <button
-            onClick={handleOpenCreate}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#173d2a] px-5 py-3.5 text-sm font-semibold text-white shadow-md shadow-[#173d2a]/15 transition hover:-translate-y-0.5 hover:bg-[#245439] cursor-pointer"
-          >
-            <span className="text-lg leading-none">+</span>
-            Novo Custo Fixo
-          </button>
+          <div className="flex items-center gap-2.5 self-start sm:self-auto">
+            <PrivacyToggle variant="pill" />
+            <button
+              onClick={handleOpenCreate}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#173d2a] px-5 py-3.5 text-sm font-semibold text-white shadow-md shadow-[#173d2a]/15 transition hover:-translate-y-0.5 hover:bg-[#245439] cursor-pointer"
+            >
+              <span className="text-lg leading-none">+</span>
+              Novo Custo Fixo
+            </button>
+          </div>
         </div>
 
         {/* Métricas / Cards de Resumo */}

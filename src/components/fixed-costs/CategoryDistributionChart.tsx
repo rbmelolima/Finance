@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { Currency, FixedCost } from '../../types/finance'
-import { formatCurrency } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
 
 interface CategoryDistributionChartProps {
   fixedCosts: FixedCost[]
@@ -24,6 +24,7 @@ export function CategoryDistributionChart({
   fixedCosts,
   defaultCurrency = 'BRL',
 }: CategoryDistributionChartProps) {
+  const { formatCurrency } = usePrivacy()
   const [selectedCurrency, setSelectedCurrency] = useState<Currency>(defaultCurrency)
   const [viewPeriod, setViewPeriod] = useState<'monthly' | 'yearly'>('monthly')
   const [hoveredCategory, setHoveredCategory] = useState<string | null>(null)

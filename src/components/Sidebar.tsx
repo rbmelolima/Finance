@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Screen } from '../types/finance'
-import { formatCurrency } from '../utils/currency'
+import { usePrivacy } from '../context/PrivacyContext'
+import { PrivacyToggle } from './common/PrivacyToggle'
 import { Logo } from './Logo'
 
 interface SidebarProps {
@@ -59,7 +60,6 @@ const NAV_ITEMS: NavItem[] = [
   },
 ]
 
-
 export function Sidebar({
   currentScreen,
   onNavigate,
@@ -68,6 +68,7 @@ export function Sidebar({
   onExit,
   netBalance,
 }: SidebarProps) {
+  const { formatCurrency } = usePrivacy()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
   const activeScreen = currentScreen === 'overview' ? 'carteira' : currentScreen
@@ -92,7 +93,7 @@ export function Sidebar({
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e3eae4] bg-white/95 px-5 py-3.5 backdrop-blur-md lg:hidden">
         <Logo onClick={() => onNavigate('dashboard')} />
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {formattedBalance && (
             <span
               className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
@@ -104,6 +105,9 @@ export function Sidebar({
               {formattedBalance}
             </span>
           )}
+
+          <PrivacyToggle variant="icon" />
+
           <button
             type="button"
             onClick={() => setIsMobileOpen(true)}
@@ -131,17 +135,22 @@ export function Sidebar({
       >
         {/* Scrollable Navigation Section */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 space-y-5">
-          {/* Logo & Mobile Close Button */}
+          {/* Logo & Privacy / Close Controls */}
           <div className="flex items-center justify-between">
             <Logo onClick={() => handleItemClick('dashboard')} />
-            <button
-              type="button"
-              onClick={() => setIsMobileOpen(false)}
-              className="grid size-8 place-items-center rounded-xl text-[#718078] hover:bg-[#edf5ef] hover:text-[#173d2a] lg:hidden cursor-pointer"
-              aria-label="Fechar Menu"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-1.5">
+              <div className="hidden lg:block">
+                <PrivacyToggle variant="icon" />
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsMobileOpen(false)}
+                className="grid size-8 place-items-center rounded-xl text-[#718078] hover:bg-[#edf5ef] hover:text-[#173d2a] lg:hidden cursor-pointer"
+                aria-label="Fechar Menu"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Saldo Livre Rápido */}
@@ -213,8 +222,10 @@ export function Sidebar({
               )
             })}
 
-            {/* Botão Sair ao final do menu principal */}
-            <div className="pt-2 border-t border-[#edf2ee] mt-2">
+            {/* Botão Modo Privacidade e Sair */}
+            <div className="pt-2 border-t border-[#edf2ee] mt-2 space-y-1.5">
+              <PrivacyToggle variant="sidebar" />
+
               <button
                 type="button"
                 onClick={() => {

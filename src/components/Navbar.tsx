@@ -1,4 +1,5 @@
 import type { Screen } from '../types/finance'
+import { PrivacyToggle } from './common/PrivacyToggle'
 import { Logo } from './Logo'
 
 interface NavbarProps {
@@ -69,12 +70,13 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
           </nav>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           {userName && (
             <span className="hidden text-xs font-medium text-[#71917d] md:inline-block">
               Olá, <strong className="text-[#173d2a]">{userName}</strong>
             </span>
           )}
+          <PrivacyToggle variant="icon" />
           <button
             onClick={onExit}
             className="rounded-xl border border-[#d8e1da] px-3.5 py-1.5 text-xs font-semibold text-[#64736a] transition hover:bg-[#f3f6f4] hover:text-[#173d2a] cursor-pointer"

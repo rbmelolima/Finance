@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react'
 import { calculatePatrimonioTotals, DEFAULT_PATRIMONIO } from '../../services/storage'
 import type { PatrimonioData } from '../../types/finance'
-import { formatCurrency, formatMoneyInput, parseMoney } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 
 interface PatrimonioPageProps {
   patrimonio: PatrimonioData
@@ -19,11 +21,14 @@ function PatrimonioFieldItem({
   onChange: (newVal: number) => void
   isPassivo?: boolean
 }) {
+  const { isPrivacyMode } = usePrivacy()
   const [isFocused, setIsFocused] = useState(false)
   const [typingVal, setTypingVal] = useState('')
 
   const displayVal = isFocused
     ? typingVal
+    : isPrivacyMode && val > 0
+    ? '••••••'
     : val === 0
     ? ''
     : formatMoneyInput(val)
@@ -79,6 +84,7 @@ function PatrimonioFieldItem({
 }
 
 export function PatrimonioPage({ patrimonio, onSavePatrimonio }: PatrimonioPageProps) {
+  const { formatCurrency } = usePrivacy()
   const [formData, setFormData] = useState<PatrimonioData>(patrimonio)
   const [savedFeedback, setSavedFeedback] = useState(false)
   const [showResetModal, setShowResetModal] = useState(false)
@@ -159,7 +165,8 @@ export function PatrimonioPage({ patrimonio, onSavePatrimonio }: PatrimonioPageP
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap sm:flex-nowrap">
+            <PrivacyToggle variant="pill" />
             <button
               onClick={() => setShowResetModal(true)}
               className="flex-1 sm:flex-none rounded-2xl border border-[#d8e1da] px-4 py-3 text-xs font-semibold text-[#64736a] transition hover:bg-[#f3f6f4] hover:text-[#173d2a] cursor-pointer"

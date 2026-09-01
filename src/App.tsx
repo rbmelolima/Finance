@@ -10,6 +10,7 @@ import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import { ProfilePage } from './components/profile/ProfilePage'
 import { QuantoCustaPage } from './components/quanto-custa/QuantoCustaPage'
 import { Sidebar } from './components/Sidebar'
+import { PrivacyProvider } from './context/PrivacyContext'
 
 import {
   calculateCarteiraTotals,
@@ -190,85 +191,86 @@ function App() {
 
   // Telas autenticadas com Menu Lateral (Sidebar)
   return (
-    <div className="min-h-screen bg-[#f7f8f5]">
-      <Sidebar
-        currentScreen={screen}
-        onNavigate={setScreen}
-        userName={profile?.name}
-        userEmail={profile?.email}
-        onExit={handleExit}
-        netBalance={carteiraTotals.netRealBalance}
-      />
-
-      <div className="min-h-screen flex flex-col flex-1 lg:pl-72 transition-all">
-        {(screen === 'carteira' || screen === 'overview') && (
-          <OverviewPage
-            bankAccounts={bankAccounts}
-            creditCards={creditCards}
-            onSaveBankAccount={handleSaveBankAccount}
-            onDeleteBankAccount={handleDeleteBankAccount}
-            onUpdateAccountBalance={handleUpdateAccountBalance}
-            onSaveCreditCard={handleSaveCreditCard}
-            onDeleteCreditCard={handleDeleteCreditCard}
-            onUpdateCardInvoice={handleUpdateCardInvoice}
-            onNavigate={setScreen}
-          />
-        )}
-
-        {screen === 'dashboard' && profile && (
-          <DashboardPage
-            name={profile.name}
-            fixedCosts={fixedCosts}
-            patrimonio={patrimonio}
-            bankAccounts={bankAccounts}
-            creditCards={creditCards}
-            onNavigate={setScreen}
-            onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
-          />
-        )}
-
-        {screen === 'fixed-costs' && (
-          <FixedCostsPage
-            fixedCosts={fixedCosts}
-            onSaveCost={handleSaveCost}
-            onDeleteCost={handleDeleteCost}
-          />
-        )}
-
-        {screen === 'quanto-custa' && (
-          <QuantoCustaPage
-            profile={profile}
-            fixedCosts={fixedCosts}
-            onSaveProfile={handleSaveProfile}
-          />
-        )}
-
-        {screen === 'patrimonio' && (
-          <PatrimonioPage
-            patrimonio={patrimonio}
-            onSavePatrimonio={handleSavePatrimonio}
-          />
-        )}
-
-
-        {screen === 'profile' && profile && (
-          <ProfilePage
-            profile={profile}
-            onSaveProfile={handleSaveProfile}
-            onDataRestored={handleDataRestored}
-            onAccountReset={handleAccountReset}
-            onAccountDeleted={handleAccountDeleted}
-          />
-        )}
-
-        {/* Modal Rápido de Criação acionado pelo Dashboard */}
-        <FixedCostModal
-          isOpen={isQuickCreateOpen}
-          onClose={() => setIsQuickCreateOpen(false)}
-          onSave={handleSaveCost}
+    <PrivacyProvider>
+      <div className="min-h-screen bg-[#f7f8f5]">
+        <Sidebar
+          currentScreen={screen}
+          onNavigate={setScreen}
+          userName={profile?.name}
+          userEmail={profile?.email}
+          onExit={handleExit}
+          netBalance={carteiraTotals.netRealBalance}
         />
+
+        <div className="min-h-screen flex flex-col flex-1 lg:pl-72 transition-all">
+          {(screen === 'carteira' || screen === 'overview') && (
+            <OverviewPage
+              bankAccounts={bankAccounts}
+              creditCards={creditCards}
+              onSaveBankAccount={handleSaveBankAccount}
+              onDeleteBankAccount={handleDeleteBankAccount}
+              onUpdateAccountBalance={handleUpdateAccountBalance}
+              onSaveCreditCard={handleSaveCreditCard}
+              onDeleteCreditCard={handleDeleteCreditCard}
+              onUpdateCardInvoice={handleUpdateCardInvoice}
+              onNavigate={setScreen}
+            />
+          )}
+
+          {screen === 'dashboard' && profile && (
+            <DashboardPage
+              name={profile.name}
+              fixedCosts={fixedCosts}
+              patrimonio={patrimonio}
+              bankAccounts={bankAccounts}
+              creditCards={creditCards}
+              onNavigate={setScreen}
+              onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
+            />
+          )}
+
+          {screen === 'fixed-costs' && (
+            <FixedCostsPage
+              fixedCosts={fixedCosts}
+              onSaveCost={handleSaveCost}
+              onDeleteCost={handleDeleteCost}
+            />
+          )}
+
+          {screen === 'quanto-custa' && (
+            <QuantoCustaPage
+              profile={profile}
+              fixedCosts={fixedCosts}
+              onSaveProfile={handleSaveProfile}
+            />
+          )}
+
+          {screen === 'patrimonio' && (
+            <PatrimonioPage
+              patrimonio={patrimonio}
+              onSavePatrimonio={handleSavePatrimonio}
+            />
+          )}
+
+          {screen === 'profile' && profile && (
+            <ProfilePage
+              profile={profile}
+              onSaveProfile={handleSaveProfile}
+              onDataRestored={handleDataRestored}
+              onAccountReset={handleAccountReset}
+              onAccountDeleted={handleAccountDeleted}
+            />
+          )}
+
+          {/* Modal Rápido de Criação acionado pelo Dashboard */}
+          <FixedCostModal
+            isOpen={isQuickCreateOpen}
+            onClose={() => setIsQuickCreateOpen(false)}
+            onSave={handleSaveCost}
+          />
+        </div>
       </div>
-    </div>
+    </PrivacyProvider>
   )
 }
 

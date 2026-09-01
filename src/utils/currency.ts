@@ -4,7 +4,15 @@ import type { Currency } from '../types/finance'
  * Formata um valor numérico para exibição monetária com 2 casas decimais obrigatórias.
  * Ex: 1250.5 -> "R$ 1.250,50" (BRL) ou "$1,250.50" (USD)
  */
-export function formatCurrency(amount: number | null | undefined, currency: Currency = 'BRL'): string {
+export function formatCurrency(
+  amount: number | null | undefined,
+  currency: Currency = 'BRL',
+  isPrivate: boolean = false
+): string {
+  if (isPrivate) {
+    return currency === 'USD' ? '$ ••••••' : 'R$ ••••••'
+  }
+
   const safeAmount = typeof amount === 'number' && !isNaN(amount) ? amount : 0
 
   if (currency === 'USD') {
@@ -28,7 +36,14 @@ export function formatCurrency(amount: number | null | undefined, currency: Curr
  * Formata um número para o padrão de input (duas casas decimais sem símbolo de moeda).
  * Ex: 1250.5 -> "1.250,50" ou 0 -> "0,00"
  */
-export function formatMoneyInput(value: number | string | null | undefined): string {
+export function formatMoneyInput(
+  value: number | string | null | undefined,
+  isPrivate: boolean = false
+): string {
+  if (isPrivate) {
+    return '••••••'
+  }
+
   if (value === null || value === undefined || value === '') {
     return '0,00'
   }

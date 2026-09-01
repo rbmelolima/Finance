@@ -1,6 +1,7 @@
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
 import { calculateOverviewTotals, calculatePatrimonioTotals } from '../../services/storage'
 import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Screen } from '../../types/finance'
-import { formatCurrency } from '../../utils/currency'
 
 interface DashboardPageProps {
   name: string
@@ -32,6 +33,7 @@ export function DashboardPage({
   onNavigate,
   onOpenNewFixedCost,
 }: DashboardPageProps) {
+  const { formatCurrency } = usePrivacy()
   const hasUSD = fixedCosts.some((c) => c.currency === 'USD')
 
   // Custos fixos
@@ -90,10 +92,17 @@ export function DashboardPage({
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 sm:py-10 lg:px-10 lg:py-14">
-        <p className="text-xs sm:text-sm font-medium text-[#71917d]">Bom te ver por aqui, {name}.</p>
-        <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.05em] text-[#173d2a]">
-          Sua visão financeira
-        </h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <p className="text-xs sm:text-sm font-medium text-[#71917d]">Bom te ver por aqui, {name}.</p>
+            <h1 className="mt-1 text-3xl sm:text-4xl font-semibold tracking-[-0.05em] text-[#173d2a]">
+              Sua visão financeira
+            </h1>
+          </div>
+          <div className="self-start sm:self-auto">
+            <PrivacyToggle variant="pill" />
+          </div>
+        </div>
 
         <div className="mt-8 sm:mt-10 grid gap-5 md:grid-cols-3">
           {/* Card Carteira Principal (Saldo Livre Imediato) */}

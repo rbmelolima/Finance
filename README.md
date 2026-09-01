@@ -16,7 +16,8 @@ O **SFP** é uma aplicação web moderna de gestão financeira pessoal e control
   - [3. Custos Fixos & Recorrentes](#3-custos-fixos--recorrentes)
   - [4. Balanço Patrimonial](#4-balanço-patrimonial)
   - [5. Perfil, Regime de Renda & Gestão Familiar](#5-perfil-regime-de-renda--gestão-familiar)
-  - [6. Backup & Privacidade Local-First](#6-backup--privacidade-local-first)
+  - [6. Modo Privacidade ("Olho Mágico")](#6-modo-privacidade-olho-mágico)
+  - [7. Backup & Privacidade Local-First](#7-backup--privacidade-local-first)
 - [Tecnologias Utilizadas](#-tecnologias-utilizadas)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Como Instalar e Rodar Localmente](#-como-instalar-e-rodar-localmente)
@@ -90,7 +91,13 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
   - Status de trabalho e renda individual.
   - Cálculo automático de **Renda Familiar Total** e **Renda per capita**.
 
-### 6. Backup & Privacidade Local-First
+### 6. Modo Privacidade ("Olho Mágico")
+- **Ocultação Instantânea de Valores**: Botão de alternância com um clique (`👁️` / `🙈`) para mascarar todos os valores financeiros (`R$ ••••••` / `$ ••••••`) em qualquer tela do aplicativo.
+- **Atalho Rápido de Teclado**: Pressione a tecla `P` (fora de campos de texto) ou `Alt + P` para alternar a privacidade instantaneamente.
+- **Persistência Local**: A preferência de visualização permanece salva entre recarregamentos e sessões.
+- **Perfeito para Uso Público**: Navegue com segurança em cafés, transportes ou gravações de tela sem expor seus números confidenciais.
+
+### 7. Backup & Privacidade Local-First
 - **Zero Servidor / Zero Rastreadores**: Todos os registros ficam armazenados com segurança no `localStorage` do seu navegador.
 - **Exportação de Backup**: Download de arquivo `.json` com todos os seus dados estruturados.
 - **Importação de Backup**: Restauração instantânea do seu espaço financeiro a partir de um backup prévio.

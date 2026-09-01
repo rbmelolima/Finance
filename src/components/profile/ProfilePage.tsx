@@ -14,7 +14,9 @@ import type {
   FamilyMember,
   Profile,
 } from '../../types/finance'
-import { formatCurrency, formatMoneyInput, parseMoney } from '../../utils/currency'
+import { usePrivacy } from '../../context/PrivacyContext'
+import { PrivacyToggle } from '../common/PrivacyToggle'
+import { formatMoneyInput, parseMoney } from '../../utils/currency'
 import { formatAgeDisplay } from '../../utils/date'
 import { FamilyMemberModal } from './FamilyMemberModal'
 
@@ -33,6 +35,7 @@ export function ProfilePage({
   onAccountReset,
   onAccountDeleted,
 }: ProfilePageProps) {
+  const { formatCurrency } = usePrivacy()
   // Form de Dados Pessoais
   const [name, setName] = useState(profile.name)
   const [email, setEmail] = useState(profile.email)
@@ -272,7 +275,8 @@ export function ProfilePage({
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 self-start sm:self-auto flex-wrap sm:flex-nowrap">
+            <PrivacyToggle variant="pill" />
             <button
               onClick={handleExportBackup}
               className="inline-flex items-center gap-2 rounded-2xl border border-[#d8e1da] bg-white px-4 py-3 text-xs sm:text-sm font-semibold text-[#173d2a] hover:bg-[#edf5ef] hover:border-[#5d9873] transition cursor-pointer shadow-2xs"

@@ -41,6 +41,12 @@ const NAV_ITEMS: NavItem[] = [
     description: 'Despesas mensais e anuais',
   },
   {
+    id: 'orcamento-familiar',
+    label: 'Orçamento Familiar',
+    icon: '🏡',
+    description: 'Planejamento mensal do casal',
+  },
+  {
     id: 'caixinhas',
     label: 'Caixinhas',
     icon: '🎯',

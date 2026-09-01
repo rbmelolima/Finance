@@ -48,6 +48,16 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
               Custos Fixos
             </button>
             <button
+              onClick={() => onNavigate('orcamento-familiar')}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition cursor-pointer ${
+                currentScreen === 'orcamento-familiar'
+                  ? 'bg-[#edf5ef] text-[#173d2a] font-semibold'
+                  : 'text-[#64736a] hover:bg-[#f3f6f4] hover:text-[#173d2a]'
+              }`}
+            >
+              Orçamento
+            </button>
+            <button
               onClick={() => onNavigate('caixinhas')}
               className={`rounded-xl px-3.5 py-2 text-sm font-medium transition cursor-pointer ${
                 currentScreen === 'caixinhas'
@@ -121,6 +131,14 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
           }`}
         >
           Custos Fixos
+        </button>
+        <button
+          onClick={() => onNavigate('orcamento-familiar')}
+          className={`flex-1 py-1.5 px-2 text-center text-xs font-medium whitespace-nowrap ${
+            currentScreen === 'orcamento-familiar' ? 'font-semibold text-[#173d2a]' : 'text-[#64736a]'
+          }`}
+        >
+          Orçamento
         </button>
         <button
           onClick={() => onNavigate('caixinhas')}

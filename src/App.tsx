@@ -6,6 +6,7 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { FixedCostsPage } from './components/fixed-costs/FixedCostsPage'
 import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
 import { Logo } from './components/Logo'
+import { OrcamentoFamiliarPage } from './components/orcamento/OrcamentoFamiliarPage'
 import { OverviewPage } from './components/overview/OverviewPage'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import { ProfilePage } from './components/profile/ProfilePage'
@@ -23,19 +24,21 @@ import {
   getCaixinhas,
   getCreditCards,
   getFixedCosts,
+  getOrCreateOrcamentoFamiliar,
   getPatrimonioData,
   getSavedProfile,
   saveBankAccountItem,
   saveCaixinhaItem,
   saveCreditCardItem,
   saveFixedCostItem,
+  saveOrcamentoFamiliar,
   savePatrimonioData,
   saveProfile,
   updateBankAccountBalance,
   updateCaixinhaAmount,
   updateCreditCardInvoice,
 } from './services/storage'
-import type { BankAccount, Caixinha, CreditCard, FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
+import type { BankAccount, Caixinha, CreditCard, FixedCost, OrcamentoFamiliarData, PatrimonioData, Profile, Screen } from './types/finance'
 
 function App() {
   const [profile, setProfile] = useState<Profile | null>(getSavedProfile)
@@ -47,6 +50,31 @@ function App() {
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(getFixedCosts)
   const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
   const [caixinhas, setCaixinhas] = useState<Caixinha[]>(getCaixinhas)
+  const [orcamentoData, setOrcamentoData] = useState<OrcamentoFamiliarData>(() => {
+    const savedProf = getSavedProfile()
+    const partner = savedProf?.familyMembers?.find(
+      (m) =>
+        m.relationship?.toLowerCase().includes('cônjuge') ||
+        m.relationship?.toLowerCase().includes('esposa') ||
+        m.relationship?.toLowerCase().includes('marido') ||
+        m.relationship?.toLowerCase().includes('parceir') ||
+        m.isWorking
+    )
+    const costs = getFixedCosts()
+    const cards = getCreditCards()
+    return getOrCreateOrcamentoFamiliar({
+      userIncome: savedProf?.personalIncome || 0,
+      partnerName: partner?.name || 'Esposa / Parceira',
+      partnerIncome: partner?.income || 0,
+      userFixedCosts: costs.map((c) => ({
+        id: c.id,
+        name: c.name,
+        amount: c.recurrence === 'yearly' ? c.amount / 12 : c.amount,
+        category: c.category,
+      })),
+      userCreditCardsAmount: cards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0),
+    })
+  })
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
   const carteiraTotals = calculateCarteiraTotals(bankAccounts, creditCards)
@@ -144,6 +172,27 @@ function App() {
     updatedPatrimonio.ATIVOS['Ativo Circulante'].Disponibilidades['Reserva de emergência'] = newAmount
     savePatrimonioData(updatedPatrimonio)
     setPatrimonio(updatedPatrimonio)
+  }
+
+  function handleSaveOrcamento(nextData: OrcamentoFamiliarData) {
+    saveOrcamentoFamiliar(nextData)
+    setOrcamentoData(nextData)
+  }
+
+  function handleResetOrcamentoDefaults() {
+    const freshData: OrcamentoFamiliarData = {
+      ...orcamentoData,
+      userIncome: profile?.personalIncome || orcamentoData.userIncome,
+      userFixedCosts: fixedCosts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        amount: c.recurrence === 'yearly' ? c.amount / 12 : c.amount,
+        category: c.category,
+      })),
+      userCreditCardsAmount: creditCards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0),
+    }
+    saveOrcamentoFamiliar(freshData)
+    setOrcamentoData(freshData)
   }
 
   function handleSavePatrimonio(newData: PatrimonioData) {
@@ -266,6 +315,16 @@ function App() {
               fixedCosts={fixedCosts}
               onSaveCost={handleSaveCost}
               onDeleteCost={handleDeleteCost}
+            />
+          )}
+
+          {screen === 'orcamento-familiar' && (
+            <OrcamentoFamiliarPage
+              orcamentoData={orcamentoData}
+              profile={profile}
+              creditCards={creditCards}
+              onSaveOrcamento={handleSaveOrcamento}
+              onResetToMasterDefaults={handleResetOrcamentoDefaults}
             />
           )}
 

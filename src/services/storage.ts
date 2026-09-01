@@ -4,6 +4,8 @@ import type {
   Caixinha,
   CreditCard,
   FixedCost,
+  OrcamentoCostItem,
+  OrcamentoFamiliarData,
   PatrimonioData,
   ProductSimulation,
   Profile,
@@ -20,6 +22,7 @@ const CREDIT_CARDS_KEY = 'sfp.credit_cards'
 const SIMULATIONS_KEY = 'sfp.simulations'
 const SELIC_CACHE_KEY = 'sfp.selic_cache'
 const CAIXINHAS_KEY = 'sfp.caixinhas'
+const ORCAMENTO_FAMILIAR_KEY = 'sfp.orcamento_familiar'
 
 
 
@@ -618,6 +621,62 @@ export function deleteCaixinhaItem(id: string): void {
   saveCaixinhas(filtered)
 }
 
+// ---------------- ORÇAMENTO FAMILIAR (PLANNER MENSAL) ---------------- //
+
+export function getCurrentMonthKey(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  return `${year}-${month}`
+}
+
+export function getSavedOrcamentoFamiliar(): OrcamentoFamiliarData | null {
+  const saved = localStorage.getItem(ORCAMENTO_FAMILIAR_KEY)
+  if (!saved) return null
+  try {
+    return JSON.parse(saved) as OrcamentoFamiliarData
+  } catch {
+    return null
+  }
+}
+
+export function saveOrcamentoFamiliar(data: OrcamentoFamiliarData): void {
+  localStorage.setItem(
+    ORCAMENTO_FAMILIAR_KEY,
+    JSON.stringify({ ...data, updatedAt: new Date().toISOString() })
+  )
+}
+
+export function getOrCreateOrcamentoFamiliar(defaults: {
+  userIncome: number
+  partnerName: string
+  partnerIncome: number
+  userFixedCosts: OrcamentoCostItem[]
+  userCreditCardsAmount: number
+}): OrcamentoFamiliarData {
+  const monthKey = getCurrentMonthKey()
+  const saved = getSavedOrcamentoFamiliar()
+
+  if (saved && saved.monthKey === monthKey) {
+    return saved
+  }
+
+  const newOrcamento: OrcamentoFamiliarData = {
+    monthKey,
+    userIncome: saved?.userIncome ?? defaults.userIncome,
+    partnerName: saved?.partnerName || defaults.partnerName || 'Esposa / Parceira',
+    partnerIncome: saved?.partnerIncome ?? defaults.partnerIncome,
+    userFixedCosts: defaults.userFixedCosts,
+    partnerFixedCosts: saved?.partnerFixedCosts ?? [],
+    userCreditCardsAmount: defaults.userCreditCardsAmount,
+    notes: saved?.notes ?? '',
+    updatedAt: new Date().toISOString(),
+  }
+
+  saveOrcamentoFamiliar(newOrcamento)
+  return newOrcamento
+}
+
 // ---------------- GESTÃO DE BACKUP E CONTA ---------------- //
 
 export function exportBackupData(): AppBackupData {
@@ -632,6 +691,7 @@ export function exportBackupData(): AppBackupData {
     categories: getCategories(),
     simulations: getSimulations(),
     caixinhas: getCaixinhas(),
+    orcamentoFamiliar: getSavedOrcamentoFamiliar() || undefined,
   }
 }
 
@@ -671,6 +731,10 @@ export function importBackupData(backupData: AppBackupData): void {
   if (Array.isArray(backupData.caixinhas)) {
     saveCaixinhas(backupData.caixinhas)
   }
+
+  if (backupData.orcamentoFamiliar && typeof backupData.orcamentoFamiliar === 'object') {
+    saveOrcamentoFamiliar(backupData.orcamentoFamiliar)
+  }
 }
 
 export function resetFinancialData(): void {
@@ -681,6 +745,7 @@ export function resetFinancialData(): void {
   saveCategories(DEFAULT_CATEGORIES)
   saveSimulations([])
   saveCaixinhas([])
+  localStorage.removeItem(ORCAMENTO_FAMILIAR_KEY)
 }
 
 export function deleteAllAccountData(): void {
@@ -693,6 +758,7 @@ export function deleteAllAccountData(): void {
   localStorage.removeItem(SIMULATIONS_KEY)
   localStorage.removeItem(SELIC_CACHE_KEY)
   localStorage.removeItem(CAIXINHAS_KEY)
+  localStorage.removeItem(ORCAMENTO_FAMILIAR_KEY)
 }
 
 // ---------------- QUANTO CUSTA? (SIMULAÇÕES & SELIC) ---------------- //

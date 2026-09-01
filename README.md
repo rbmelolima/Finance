@@ -14,11 +14,12 @@ O **SFP** é uma aplicação web moderna de gestão financeira pessoal e control
   - [1. Dashboard Inteligente](#1-dashboard-inteligente)
   - [2. Carteira & Visão Geral (Contas e Cartões)](#2-carteira--visão-geral-contas-e-cartões)
   - [3. Custos Fixos & Recorrentes](#3-custos-fixos--recorrentes)
-  - [4. Caixinhas & Metas Financeiras (Reserva Fixa & Objetivos Livres)](#4-caixinhas--metas-financeiras-reserva-fixa--objetivos-livres)
-  - [5. Balanço Patrimonial](#5-balanço-patrimonial)
-  - [6. Perfil, Regime de Renda & Gestão Familiar](#6-perfil-regime-de-renda--gestão-familiar)
-  - [7. Modo Privacidade ("Olho Mágico")](#7-modo-privacidade-olho-mágico)
-  - [8. Backup & Privacidade Local-First](#8-backup--privacidade-local-first)
+  - [4. Orçamento Familiar (Planner Mensal do Casal)](#4-orçamento-familiar-planner-mensal-do-casal)
+  - [5. Caixinhas & Metas Financeiras (Reserva Fixa & Objetivos Livres)](#5-caixinhas--metas-financeiras-reserva-fixa--objetivos-livres)
+  - [6. Balanço Patrimonial](#6-balanço-patrimonial)
+  - [7. Perfil, Regime de Renda & Gestão Familiar](#7-perfil-regime-de-renda--gestão-familiar)
+  - [8. Modo Privacidade ("Olho Mágico")](#8-modo-privacidade-olho-mágico)
+  - [9. Backup & Privacidade Local-First](#9-backup--privacidade-local-first)
 - [Tecnologias Utilizadas](#-tecnologias-utilizadas)
 - [Estrutura do Projeto](#-estrutura-do-projeto)
 - [Como Instalar e Rodar Localmente](#-como-instalar-e-rodar-localmente)
@@ -75,7 +76,15 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
 - Gráfico interativo de distribuição de categorias com percentuais e valores.
 - Sistema de busca textual e filtros combinados por categoria, recorrência e moeda.
 
-### 4. Caixinhas & Metas Financeiras (Reserva Fixa & Objetivos Livres)
+### 4. Orçamento Familiar (Planner Mensal do Casal)
+- **Isolamento e Autonomia**: Suas contas fixas mestres permanecem 100% pessoais; as contas fixas da parceira/esposa são cadastradas e salvas exclusivamente dentro do Orçamento Familiar.
+- **As 3 Visões Estratégicas**:
+  - **🏡 Fluxo da Casa**: `Renda Total − Custos Fixos da Casa (Dele + Dela) − Seus Cartões = Sobra da Casa` (potencial de aporte nas Caixinhas e Reserva).
+  - **⚖️ Divisão & Proporcionalidade**: Comparativo entre a proporção da renda de cada um e a proporção real das contas pagas (análise de divisão proporcional à renda vs divisão 50/50).
+  - **👤 Visão Individual**: Saldo livre real do usuário vs Saldo disponível dela (para ela gerenciar seus próprios cartões e gastos com 100% de privacidade).
+- **Independência do Planner**: Permite simular ou ajustar valores específicos do mês sem modificar suas listas mestras.
+
+### 5. Caixinhas & Metas Financeiras (Reserva Fixa & Objetivos Livres)
 - **Caixinha de Reserva de Emergência Fixa**:
   - Meta calculada automaticamente: **50% dos custos fixos anuais** (6 meses de cobertura de custos fixos mensais).
   - Sincronização direta com a Reserva de Emergência do Balanço Patrimonial.
@@ -85,7 +94,7 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
   - Definição opcional de prazo estimado (Mês/Ano) com **cálculo automático do aporte mensal sugerido** para atingir a meta no tempo desejado.
   - Ações rápidas de **Depósito (+)** e **Resgate (−)** com formatação de 2 casas decimais.
 
-### 5. Balanço Patrimonial
+### 6. Balanço Patrimonial
 - Organização contábil simplificada dividida em:
   - **Ativo Circulante**: Dinheiro no bolso, contas e poupança, reserva de emergência, contas a receber (salário, renda extra) e investimentos (renda fixa e variável).
   - **Passivos com Valor / Bens**: Veículos, imóveis e FGTS.
@@ -93,7 +102,7 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
   - **Não Circulante**: Financiamentos de longo prazo (imóveis, veículos).
 - **Cálculo Automático de Patrimônio Líquido**: Atualização dinâmica do total de ativos, passivos e patrimônio líquido.
 
-### 6. Perfil, Regime de Renda & Gestão Familiar
+### 7. Perfil, Regime de Renda & Gestão Familiar
 - **Regime de Renda Customizável**:
   - **Regime CLT**: Suporte ao modelo de pagamento integral (5º dia útil ou último dia útil) ou modelo com Adiantamento/Vale (dia do adiantamento + % do adiantamento + saldo restante).
   - **Regime PJ / Autônomo**: Definição personalizada do dia de faturamento/recebimento.
@@ -102,13 +111,13 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
   - Status de trabalho e renda individual.
   - Cálculo automático de **Renda Familiar Total** e **Renda per capita**.
 
-### 7. Modo Privacidade ("Olho Mágico")
+### 8. Modo Privacidade ("Olho Mágico")
 - **Ocultação Instantânea de Valores**: Botão de alternância com um clique (`👁️` / `🙈`) para mascarar todos os valores financeiros (`R$ ••••••` / `$ ••••••`) em qualquer tela do aplicativo.
 - **Atalho Rápido de Teclado**: Pressione a tecla `P` (fora de campos de texto) ou `Alt + P` para alternar a privacidade instantaneamente.
 - **Persistência Local**: A preferência de visualização permanece salva entre recarregamentos e sessões.
 - **Perfeito para Uso Público**: Navegue com segurança em cafés, transportes ou gravações de tela sem expor seus números confidenciais.
 
-### 8. Backup & Privacidade Local-First
+### 9. Backup & Privacidade Local-First
 - **Zero Servidor / Zero Rastreadores**: Todos os registros ficam armazenados com segurança no `localStorage` do seu navegador.
 - **Exportação de Backup**: Download de arquivo `.json` com todos os seus dados estruturados.
 - **Importação de Backup**: Restauração instantânea do seu espaço financeiro a partir de um backup prévio.

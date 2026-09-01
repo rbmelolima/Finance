@@ -176,6 +176,25 @@ export interface Caixinha {
   updatedAt?: string
 }
 
+export interface OrcamentoCostItem {
+  id: string
+  name: string
+  amount: number
+  category?: string
+}
+
+export interface OrcamentoFamiliarData {
+  monthKey: string // Ex: "2026-09"
+  userIncome: number
+  partnerName: string
+  partnerIncome: number
+  userFixedCosts: OrcamentoCostItem[]
+  partnerFixedCosts: OrcamentoCostItem[]
+  userCreditCardsAmount: number
+  notes?: string
+  updatedAt?: string
+}
+
 export interface AppBackupData {
   version: number
   exportedAt: string
@@ -187,6 +206,7 @@ export interface AppBackupData {
   categories: string[]
   simulations?: ProductSimulation[]
   caixinhas?: Caixinha[]
+  orcamentoFamiliar?: OrcamentoFamiliarData
 }
 
 export type Screen =
@@ -196,6 +216,7 @@ export type Screen =
   | 'overview'
   | 'dashboard'
   | 'fixed-costs'
+  | 'orcamento-familiar'
   | 'caixinhas'
   | 'patrimonio'
   | 'profile'

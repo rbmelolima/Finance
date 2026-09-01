@@ -321,8 +321,36 @@ export function DashboardPage({
           </article>
         </div>
 
+        {/* Banner / Atalho Orçamento Familiar */}
+        <div className="mt-8 overflow-hidden rounded-3xl border border-[#dfe8e1] bg-white p-6 sm:p-7 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5 transition hover:border-[#b7d7c5]">
+          <div className="flex items-start gap-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-[#edf5ef] text-2xl">
+              🏡
+            </span>
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#edf5ef] border border-[#d8e5dc] px-2.5 py-0.5 text-[11px] font-bold text-[#5a8067]">
+                <span>Mês Atual</span> • Planejamento do Casal
+              </div>
+              <h2 className="mt-1 text-lg sm:text-xl font-bold text-[#173d2a]">
+                Orçamento Familiar: Equilíbrio e Sobra da Casa
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-[#64736a] max-w-xl">
+                Acompanhe a proporção de rendas e contas pagas, a sobra consolidada do mês e mantenha a autonomia individual de cada um.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('orcamento-familiar')}
+            className="rounded-2xl bg-[#173d2a] px-5 py-3 text-sm font-bold text-white hover:bg-[#245439] transition cursor-pointer shadow-sm shrink-0 w-full sm:w-auto text-center"
+          >
+            Abrir Orçamento do Mês →
+          </button>
+        </div>
+
         {/* Banner / Atalho Quanto Custa? */}
-        <div className="mt-8 overflow-hidden rounded-3xl border border-[#d8e5dc] bg-gradient-to-r from-[#173d2a] to-[#245439] p-6 sm:p-7 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+        <div className="mt-5 overflow-hidden rounded-3xl border border-[#d8e5dc] bg-gradient-to-r from-[#173d2a] to-[#245439] p-6 sm:p-7 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
           <div className="flex items-start gap-4">
             <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-2xl">
               ⏱️

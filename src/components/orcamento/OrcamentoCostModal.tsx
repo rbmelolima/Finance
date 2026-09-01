@@ -56,12 +56,6 @@ function OrcamentoCostForm({
     costToEdit?.amount ? formatMoneyInput(costToEdit.amount) : ''
   )
   const [category, setCategory] = useState(costToEdit?.category ?? 'Habitação')
-  const [paymentMethod, setPaymentMethod] = useState<'pix_boleto' | 'credit_card'>(
-    costToEdit?.paymentMethod ?? 'pix_boleto'
-  )
-  const [paymentStatus, setPaymentStatus] = useState<'pending' | 'paid'>(
-    costToEdit?.paymentStatus ?? 'pending'
-  )
   const [errors, setErrors] = useState<{ name?: string; amount?: string }>({})
 
   function validate() {
@@ -89,8 +83,6 @@ function OrcamentoCostForm({
         name: name.trim(),
         amount: amt,
         category,
-        paymentMethod,
-        paymentStatus,
       },
       target
     )
@@ -133,7 +125,7 @@ function OrcamentoCostForm({
               setName(e.target.value)
               if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }))
             }}
-            placeholder="Ex: Condomínio, Supermercado, Internet..."
+            placeholder="Ex: Condomínio, Supermercado, Energia..."
             className={`mt-1.5 w-full rounded-2xl border bg-white px-4 py-3 text-sm font-semibold text-[#173d2a] outline-none transition placeholder:text-[#a1afa6] ${
               errors.name
                 ? 'border-rose-400 focus:border-rose-500 focus:ring-4 focus:ring-rose-100'
@@ -173,69 +165,6 @@ function OrcamentoCostForm({
           )}
         </div>
 
-        {/* Forma de Pagamento e Status */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-semibold text-[#30483a] mb-1.5">
-              Forma de Pagamento
-            </label>
-            <div className="flex rounded-xl bg-[#f7f8f5] border border-[#e3eae4] p-1 gap-1">
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('pix_boleto')}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
-                  paymentMethod === 'pix_boleto'
-                    ? 'bg-white text-[#173d2a] shadow-xs'
-                    : 'text-[#64736a]'
-                }`}
-              >
-                ⚡ PIX / Conta
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentMethod('credit_card')}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
-                  paymentMethod === 'credit_card'
-                    ? 'bg-white text-purple-800 shadow-xs'
-                    : 'text-[#64736a]'
-                }`}
-              >
-                💳 Cartão
-              </button>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#30483a] mb-1.5">
-              Status do Pagamento
-            </label>
-            <div className="flex rounded-xl bg-[#f7f8f5] border border-[#e3eae4] p-1 gap-1">
-              <button
-                type="button"
-                onClick={() => setPaymentStatus('pending')}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
-                  paymentStatus === 'pending'
-                    ? 'bg-white text-amber-800 shadow-xs'
-                    : 'text-[#64736a]'
-                }`}
-              >
-                ⏳ Pendente
-              </button>
-              <button
-                type="button"
-                onClick={() => setPaymentStatus('paid')}
-                className={`flex-1 rounded-lg py-1.5 text-[11px] font-bold transition cursor-pointer ${
-                  paymentStatus === 'paid'
-                    ? 'bg-white text-emerald-800 shadow-xs'
-                    : 'text-[#64736a]'
-                }`}
-              >
-                ✅ Pago
-              </button>
-            </div>
-          </div>
-        </div>
-
         <div>
           <label htmlFor="orc-cost-cat" className="block text-xs font-semibold text-[#30483a]">
             Categoria
@@ -254,19 +183,19 @@ function OrcamentoCostForm({
           </select>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#edf2ee]">
+        <div className="mt-6 flex items-center justify-end gap-3 pt-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-2xl border border-[#d8e1da] px-5 py-2.5 text-xs font-semibold text-[#64736a] hover:bg-[#f7f8f5] hover:text-[#173d2a] transition cursor-pointer"
+            className="rounded-2xl border border-[#d8e1da] px-4 py-2.5 text-xs font-semibold text-[#64736a] hover:bg-[#f7f8f5] transition cursor-pointer"
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className="rounded-2xl bg-[#173d2a] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#245439] shadow-md shadow-[#173d2a]/10 transition cursor-pointer"
+            className="rounded-2xl bg-[#173d2a] px-6 py-2.5 text-xs font-bold text-white hover:bg-[#245439] transition cursor-pointer shadow-sm"
           >
-            {costToEdit ? 'Salvar Alteração' : 'Adicionar ao Orçamento'}
+            {costToEdit ? 'Salvar Alterações' : 'Adicionar Despesa'}
           </button>
         </div>
       </form>

@@ -61,7 +61,6 @@ function App() {
         m.isWorking
     )
     const costs = getFixedCosts()
-    const cards = getCreditCards()
     return getOrCreateOrcamentoFamiliar({
       userIncome: savedProf?.personalIncome || 0,
       partnerName: partner?.name || 'Esposa / Parceira',
@@ -72,7 +71,6 @@ function App() {
         amount: c.recurrence === 'yearly' ? c.amount / 12 : c.amount,
         category: c.category,
       })),
-      userCreditCardsAmount: cards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0),
     })
   })
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
@@ -189,7 +187,6 @@ function App() {
         amount: c.recurrence === 'yearly' ? c.amount / 12 : c.amount,
         category: c.category,
       })),
-      userCreditCardsAmount: creditCards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0),
       updatedAt: new Date().toISOString(),
     }
     saveOrcamentoFamiliar(freshData)
@@ -324,7 +321,7 @@ function App() {
               key={orcamentoData.updatedAt || 'orcamento'}
               orcamentoData={orcamentoData}
               profile={profile}
-              creditCards={creditCards}
+              patrimonio={patrimonio}
               onSaveOrcamento={handleSaveOrcamento}
               onResetToMasterDefaults={handleResetOrcamentoDefaults}
             />

@@ -77,12 +77,13 @@ Tudo funciona diretamente no navegador do usuário (`localStorage`), com respost
 - Sistema de busca textual e filtros combinados por categoria, recorrência e moeda.
 
 ### 4. Orçamento Familiar (Planner Mensal do Casal)
-- **Isolamento e Autonomia**: Suas contas fixas mestres permanecem 100% pessoais; as contas fixas da parceira/esposa são cadastradas e salvas exclusivamente dentro do Orçamento Familiar.
-- **As 3 Visões Estratégicas**:
-  - **🏡 Fluxo da Casa**: `Renda Total − Custos Fixos da Casa (Dele + Dela) − Seus Cartões = Sobra da Casa` (potencial de aporte nas Caixinhas e Reserva).
-  - **⚖️ Divisão & Proporcionalidade**: Comparativo entre a proporção da renda de cada um e a proporção real das contas pagas (análise de divisão proporcional à renda vs divisão 50/50).
-  - **👤 Visão Individual**: Saldo livre real do usuário vs Saldo disponível dela (para ela gerenciar seus próprios cartões e gastos com 100% de privacidade).
-- **Independência do Planner**: Permite simular ou ajustar valores específicos do mês sem modificar suas listas mestras.
+- **Focado nas 3 Perguntas Essenciais**:
+  1. **👤 Quanto sobra para Você**: `Sua Renda − Seus Custos Assumidos = Seu Saldo Livre`.
+  2. **👩 Quanto sobra para Ela**: `Renda Dela − Custos Dela Assumidos = Saldo Livre Dela` (com 100% de autonomia e privacidade).
+  3. **🛡️ Potencial de Aporte na Reserva de Emergência (sem dívidas)**: `Sobra Total Conjunta = Renda Total da Casa − Custos Totais da Casa`.
+- **Projeção Automática da Reserva**: Cálculo dinâmico de quantos meses levará para atingir 100% da meta da Reserva de Emergência (6 meses de custos da família).
+- **⚖️ Divisão Justa Proporcional à Renda (ex: 80% / 20%)**: Diagnóstico objetivo de acerto (*quem transfere para quem para fechar a conta 100% equilibrada na proporção de renda trazida para a casa*).
+- **Cadastro Ágil de Contas**: Duas colunas limpas com edição de valor em tempo real sem alterar suas listas mestras de custos.
 
 ### 5. Caixinhas & Metas Financeiras (Reserva Fixa & Objetivos Livres)
 - **Caixinha de Reserva de Emergência Fixa**:

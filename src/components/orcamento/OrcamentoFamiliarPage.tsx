@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import type { CreditCard, OrcamentoCostItem, OrcamentoFamiliarData, Profile } from '../../types/finance'
+import type { OrcamentoCostItem, OrcamentoFamiliarData, PatrimonioData, Profile } from '../../types/finance'
 import { usePrivacy } from '../../context/PrivacyContext'
 import { PrivacyToggle } from '../common/PrivacyToggle'
 import { formatMoneyInput, maskMoneyInput, parseMoney } from '../../utils/currency'
@@ -9,7 +9,7 @@ import { OrcamentoCostModal } from './OrcamentoCostModal'
 interface OrcamentoFamiliarPageProps {
   orcamentoData: OrcamentoFamiliarData
   profile: Profile | null
-  creditCards: CreditCard[]
+  patrimonio?: PatrimonioData | null
   onSaveOrcamento: (data: OrcamentoFamiliarData) => void
   onResetToMasterDefaults: () => void
 }
@@ -17,14 +17,11 @@ interface OrcamentoFamiliarPageProps {
 export function OrcamentoFamiliarPage({
   orcamentoData,
   profile,
-  creditCards,
+  patrimonio,
   onSaveOrcamento,
   onResetToMasterDefaults,
 }: OrcamentoFamiliarPageProps) {
   const { formatCurrency } = usePrivacy()
-
-  // Tab ativa para as 3 visões
-  const [activeTab, setActiveTab] = useState<'flow' | 'balance' | 'individual'>('flow')
 
   // Modal de Confirmação para Zerar
   const [isClearModalOpen, setIsClearModalOpen] = useState(false)
@@ -45,7 +42,7 @@ export function OrcamentoFamiliarPage({
   const currentMonthName = MONTHS_PTBR[now.getMonth()]?.label || ''
   const currentYear = now.getFullYear()
 
-  // Sincronização de inputs de renda e cartões
+  // Sincronização de inputs de renda
   const [partnerNameInput, setPartnerNameInput] = useState(orcamentoData.partnerName)
   const [userIncomeStr, setUserIncomeStr] = useState(() =>
     formatMoneyInput(orcamentoData.userIncome || profile?.personalIncome || 0)
@@ -53,85 +50,65 @@ export function OrcamentoFamiliarPage({
   const [partnerIncomeStr, setPartnerIncomeStr] = useState(() =>
     formatMoneyInput(orcamentoData.partnerIncome || 0)
   )
-  const [userCardsStr, setUserCardsStr] = useState(() =>
-    formatMoneyInput(
-      orcamentoData.userCreditCardsAmount ||
-        creditCards.reduce((acc, c) => acc + (Number(c.invoiceAmount) || 0), 0)
-    )
-  )
 
   // ---------------- CÁLCULOS PRINCIPAIS ---------------- //
   const userIncome = parseMoney(userIncomeStr)
   const partnerIncome = parseMoney(partnerIncomeStr)
   const totalIncome = userIncome + partnerIncome
 
-  const userCardsAmount = parseMoney(userCardsStr)
-
-  const userFixedCostsTotal = useMemo(() => {
+  // Custos Assumidos por Cada Um
+  const userCostsTotal = useMemo(() => {
     return orcamentoData.userFixedCosts.reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
   }, [orcamentoData.userFixedCosts])
 
-  const partnerFixedCostsTotal = useMemo(() => {
+  const partnerCostsTotal = useMemo(() => {
     return orcamentoData.partnerFixedCosts.reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
   }, [orcamentoData.partnerFixedCosts])
 
-  const totalFixedCosts = userFixedCostsTotal + partnerFixedCostsTotal
+  const totalHouseCosts = userCostsTotal + partnerCostsTotal
 
-  // 1. Visão de Fluxo Consolidado da Casa
-  const houseNetSurplus = totalIncome - totalFixedCosts - userCardsAmount
+  // 1. Resposta 1: Quanto Sobra para Você
+  const userSurplus = userIncome - userCostsTotal
+  const userRecommendedAporte = Math.max(0, userSurplus * 0.2)
+  const userFreeAfterAporte = userSurplus - userRecommendedAporte
 
-  // 2. Visão de Equilíbrio & Proporcionalidade Justa (80% / 20%, etc.)
+  // 2. Resposta 2: Quanto Sobra para Ela
+  const partnerSurplus = partnerIncome - partnerCostsTotal
+  const partnerRecommendedAporte = Math.max(0, partnerSurplus * 0.2)
+  const partnerFreeAfterAporte = partnerSurplus - partnerRecommendedAporte
+
+  // 3. Resposta 3: Potencial de Aporte Mensal na Reserva de Emergência (sem dívidas)
+  const houseTotalSurplus = totalIncome - totalHouseCosts
+  const houseRecommendedAporte = userRecommendedAporte + partnerRecommendedAporte
+
+  // Proporções de Renda da Casa (Ex: 80% / 20%)
   const userIncomePercent = totalIncome > 0 ? (userIncome / totalIncome) * 100 : 50
   const partnerIncomePercent = totalIncome > 0 ? (partnerIncome / totalIncome) * 100 : 50
 
-  const userPaidPercent = totalFixedCosts > 0 ? (userFixedCostsTotal / totalFixedCosts) * 100 : 50
-  const partnerPaidPercent =
-    totalFixedCosts > 0 ? (partnerFixedCostsTotal / totalFixedCosts) * 100 : 50
-
-  // Cota Justa Proporcional à Renda (Quem ganha 80% paga 80% das contas)
-  const idealUserShare = totalFixedCosts * (userIncomePercent / 100)
-  const idealPartnerShare = totalFixedCosts * (partnerIncomePercent / 100)
-
-  // Cota 50/50
-  const halfShare = totalFixedCosts / 2
+  // Cota Justa Proporcional às Rendas
+  const idealUserShare = totalHouseCosts * (userIncomePercent / 100)
+  const idealPartnerShare = totalHouseCosts * (partnerIncomePercent / 100)
 
   // Diferença do Usuário em relação à Cota Justa Proporcional
   // Se > 0: pagou a mais que o justo (esposa deve transferir a diferença)
   // Se < 0: pagou a menos que o justo (você deve transferir a diferença)
-  const userFairDifference = userFixedCostsTotal - idealUserShare
+  const userFairDifference = userCostsTotal - idealUserShare
 
-  // 3. Status de Pagamento (Pago vs Pendente) & Métodos (PIX vs Cartão)
-  const allCosts = useMemo(() => {
-    return [
-      ...orcamentoData.userFixedCosts.map((c) => ({ ...c, owner: 'user' as const })),
-      ...orcamentoData.partnerFixedCosts.map((c) => ({ ...c, owner: 'partner' as const })),
-    ]
-  }, [orcamentoData.userFixedCosts, orcamentoData.partnerFixedCosts])
+  // Projeção da Reserva de Emergência (6 meses de custos da casa)
+  const emergencyReserveTarget = totalHouseCosts * 6
+  const currentEmergencyReserve =
+    patrimonio?.ATIVOS['Ativo Circulante'].Disponibilidades['Reserva de emergência'] || 0
+  const remainingForEmergencyReserve = Math.max(0, emergencyReserveTarget - currentEmergencyReserve)
 
-  const paidCostsTotal = useMemo(() => {
-    return allCosts
-      .filter((c) => c.paymentStatus === 'paid')
-      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
-  }, [allCosts])
+  const monthsToCompleteWithRecommended =
+    houseRecommendedAporte > 0
+      ? Math.ceil(remainingForEmergencyReserve / houseRecommendedAporte)
+      : null
 
-  const pendingCostsTotal = Math.max(0, totalFixedCosts - paidCostsTotal)
-  const paidPercent = totalFixedCosts > 0 ? (paidCostsTotal / totalFixedCosts) * 100 : 0
-
-  const pixBoletoTotal = useMemo(() => {
-    return allCosts
-      .filter((c) => c.paymentMethod !== 'credit_card')
-      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
-  }, [allCosts])
-
-  const creditCardCostsTotal = useMemo(() => {
-    return allCosts
-      .filter((c) => c.paymentMethod === 'credit_card')
-      .reduce((acc, c) => acc + (Number(c.amount) || 0), 0)
-  }, [allCosts])
-
-  // 4. Visão Individual & Autonomia
-  const userFreeBalance = userIncome - userFixedCostsTotal - userCardsAmount
-  const partnerAvailableBalance = partnerIncome - partnerFixedCostsTotal
+  const monthsToCompleteWithFullSurplus =
+    houseTotalSurplus > 0
+      ? Math.ceil(remainingForEmergencyReserve / houseTotalSurplus)
+      : null
 
   // ---------------- HANDLERS DE PERSISTÊNCIA ---------------- //
 
@@ -141,7 +118,6 @@ export function OrcamentoFamiliarPage({
       partnerName: partnerNameInput.trim() || 'Esposa / Parceira',
       userIncome,
       partnerIncome,
-      userCreditCardsAmount: userCardsAmount,
     })
   }
 
@@ -199,36 +175,12 @@ export function OrcamentoFamiliarPage({
     onSaveOrcamento(nextOrcamento)
   }
 
-  function handleToggleCostStatus(id: string, target: 'user' | 'partner') {
-    const nextOrcamento = { ...orcamentoData }
-    if (target === 'user') {
-      nextOrcamento.userFixedCosts = nextOrcamento.userFixedCosts.map((c) => {
-        if (c.id === id) {
-          const nextStatus = c.paymentStatus === 'paid' ? 'pending' : 'paid'
-          return { ...c, paymentStatus: nextStatus }
-        }
-        return c
-      })
-    } else {
-      nextOrcamento.partnerFixedCosts = nextOrcamento.partnerFixedCosts.map((c) => {
-        if (c.id === id) {
-          const nextStatus = c.paymentStatus === 'paid' ? 'pending' : 'paid'
-          return { ...c, paymentStatus: nextStatus }
-        }
-        return c
-      })
-    }
-    onSaveOrcamento(nextOrcamento)
-  }
-
   function handleClearAllCosts() {
     onSaveOrcamento({
       ...orcamentoData,
       userFixedCosts: [],
       partnerFixedCosts: [],
-      userCreditCardsAmount: 0,
     })
-    setUserCardsStr('0,00')
     setIsClearModalOpen(false)
   }
 
@@ -246,7 +198,7 @@ export function OrcamentoFamiliarPage({
               Orçamento Familiar
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-[#64736a]">
-              Planejamento mensal do casal com divisão proporcional justa, fluxo consolidado e controle de contas pagas.
+              Visão direta: quanto sobra para você, quanto sobra para ela e o poder de aporte na Reserva de Emergência.
             </p>
           </div>
 
@@ -271,20 +223,20 @@ export function OrcamentoFamiliarPage({
           </div>
         </div>
 
-        {/* Bloco de Rendas e Faturas do Mês (Configuração Rápida) */}
+        {/* ---------------- BLOCO DE RENDIMENTOS DA CASA ---------------- */}
         <div className="mt-8 rounded-3xl border border-[#dfe8e1] bg-white p-5 sm:p-7 shadow-xs">
           <div className="flex items-center justify-between border-b border-[#edf2ee] pb-3 mb-5">
             <h2 className="text-sm font-bold text-[#173d2a] flex items-center gap-2">
-              <span>💰</span> Rendimentos da Casa no Mês
+              <span>💰</span> Rendimentos Mensais da Casa
             </h2>
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-[#173d2a] bg-[#edf5ef] px-3 py-1 rounded-full border border-[#d8e5dc]">
-                Renda Total: {formatCurrency(totalIncome)}
+                Renda Total Conjunta: {formatCurrency(totalIncome)}
               </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Sua Renda */}
             <div>
               <div className="flex items-center justify-between mb-1">
@@ -292,7 +244,7 @@ export function OrcamentoFamiliarPage({
                   Sua Renda (Você)
                 </label>
                 <span className="text-[11px] font-extrabold text-[#173d2a] bg-[#edf5ef] px-2 py-0.5 rounded-md">
-                  {userIncomePercent.toFixed(0)}% da renda
+                  {userIncomePercent.toFixed(0)}% da renda da casa
                 </span>
               </div>
               <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-[#5d9873] focus-within:ring-3 focus-within:ring-[#b7d7c5]/40 transition">
@@ -327,7 +279,7 @@ export function OrcamentoFamiliarPage({
                   />
                 </div>
                 <span className="text-[11px] font-extrabold text-[#5a8067] bg-[#edf5ef] px-2 py-0.5 rounded-md">
-                  {partnerIncomePercent.toFixed(0)}% da renda
+                  {partnerIncomePercent.toFixed(0)}% da renda da casa
                 </span>
               </div>
               <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-[#5d9873] focus-within:ring-3 focus-within:ring-[#b7d7c5]/40 transition">
@@ -343,545 +295,259 @@ export function OrcamentoFamiliarPage({
                 />
               </div>
             </div>
-
-            {/* Fatura dos Seus Cartões */}
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <label className="text-xs font-semibold text-[#30483a]">
-                  Seus Cartões no Mês
-                </label>
-                <span className="text-[10px] text-[#8a998f]">
-                  (Gastos variáveis)
-                </span>
-              </div>
-              <div className="relative rounded-2xl border border-[#d8e1da] bg-[#fafcfb] px-3.5 py-2.5 focus-within:bg-white focus-within:border-rose-400 focus-within:ring-3 focus-within:ring-rose-100 transition">
-                <span className="text-xs font-bold text-rose-500 mr-1.5">R$</span>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={userCardsStr}
-                  onChange={(e) => setUserCardsStr(maskMoneyInput(e.target.value))}
-                  onBlur={handleSaveHeaderValues}
-                  placeholder="0,00"
-                  className="w-[85%] text-sm font-bold text-rose-600 outline-none"
-                />
-              </div>
-            </div>
           </div>
         </div>
 
-        {/* ---------------- CARD DESTAQUE: ACERTO JUSTO DO CASAL (PROPORCIONAL À RENDA) ---------------- */}
-        <div className="mt-6 rounded-3xl border border-[#b7d7c5] bg-gradient-to-br from-white via-white to-[#f4f9f5] p-6 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 border-b border-[#edf2ee] pb-4">
-            <div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-[#173d2a] px-3 py-1 text-xs font-semibold text-white mb-2">
-                <span>⚖️</span> Regra da Divisão Justa Proporcional ({userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)
-              </div>
-              <h3 className="text-xl font-bold text-[#173d2a]">
-                Diagnóstico de Equilíbrio Financeiro
-              </h3>
-              <p className="text-xs text-[#64736a] mt-0.5">
-                Como você representa <strong>{userIncomePercent.toFixed(0)}%</strong> da renda e {partnerNameInput} representa <strong>{partnerIncomePercent.toFixed(0)}%</strong>, a divisão 100% justa é que cada um pague essa mesma proporção das despesas totais ({formatCurrency(totalFixedCosts)}).
-              </p>
-            </div>
-
-            {/* Card de Compensação / Transferência Recomendada */}
-            <div className="rounded-2xl bg-white border border-[#d8e1da] p-4 shadow-2xs shrink-0 max-w-sm">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f] block">
-                Acerto do Casal no Mês
-              </span>
-              {totalFixedCosts === 0 ? (
-                <p className="text-xs font-semibold text-[#8a998f] mt-1">Nenhuma conta cadastrada.</p>
-              ) : Math.abs(userFairDifference) < 1 ? (
-                <p className="text-sm font-bold text-emerald-700 mt-1 flex items-center gap-1.5">
-                  <span>✓</span> Contas perfeitamente equilibradas!
-                </p>
-              ) : userFairDifference > 0 ? (
-                <div className="mt-1 space-y-1">
-                  <p className="text-xs font-semibold text-[#30483a]">
-                    Você pagou a mais que sua cota justa:
-                  </p>
-                  <p className="text-base font-black text-[#173d2a]">
-                    {partnerNameInput} transfere <span className="text-emerald-700">{formatCurrency(userFairDifference)}</span> para você
-                  </p>
-                  <p className="text-[10px] text-[#8a998f]">
-                    (Ou {partnerNameInput} assume mais contas neste valor para equilibrar em {userIncomePercent.toFixed(0)}%/{partnerIncomePercent.toFixed(0)}%)
-                  </p>
-                </div>
-              ) : (
-                <div className="mt-1 space-y-1">
-                  <p className="text-xs font-semibold text-[#30483a]">
-                    {partnerNameInput} pagou a mais que a cota justa:
-                  </p>
-                  <p className="text-base font-black text-[#173d2a]">
-                    Você transfere <span className="text-emerald-700">{formatCurrency(Math.abs(userFairDifference))}</span> para {partnerNameInput}
-                  </p>
-                  <p className="text-[10px] text-[#8a998f]">
-                    (Para fechar exatamente em {userIncomePercent.toFixed(0)}%/{partnerIncomePercent.toFixed(0)}%)
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Grid de Cotas vs Pago Real */}
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            {/* Seu lado */}
-            <div className="rounded-2xl bg-[#fafcfb] border border-[#edf2ee] p-3.5 space-y-2">
-              <div className="flex items-center justify-between font-bold text-[#173d2a]">
-                <span>Você ({userIncomePercent.toFixed(0)}% da renda)</span>
-                <span>{formatCurrency(userFixedCostsTotal)} pago</span>
-              </div>
-              <div className="flex items-center justify-between text-[#64736a]">
-                <span>Sua Cota Justa ({userIncomePercent.toFixed(0)}% de {formatCurrency(totalFixedCosts)}):</span>
-                <span className="font-bold text-[#173d2a]">{formatCurrency(idealUserShare)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#8a998f]">Diferença atual:</span>
-                <span className={userFairDifference >= 0 ? 'font-bold text-emerald-700' : 'font-bold text-amber-700'}>
-                  {userFairDifference >= 0 ? `+${formatCurrency(userFairDifference)} pagos` : `${formatCurrency(userFairDifference)} a pagar`}
-                </span>
-              </div>
-            </div>
-
-            {/* Lado Dela */}
-            <div className="rounded-2xl bg-[#fafcfb] border border-[#edf2ee] p-3.5 space-y-2">
-              <div className="flex items-center justify-between font-bold text-[#173d2a]">
-                <span>{partnerNameInput} ({partnerIncomePercent.toFixed(0)}% da renda)</span>
-                <span>{formatCurrency(partnerFixedCostsTotal)} pago</span>
-              </div>
-              <div className="flex items-center justify-between text-[#64736a]">
-                <span>Cota Justa Dela ({partnerIncomePercent.toFixed(0)}% de {formatCurrency(totalFixedCosts)}):</span>
-                <span className="font-bold text-[#173d2a]">{formatCurrency(idealPartnerShare)}</span>
-              </div>
-              <div className="flex items-center justify-between text-[11px]">
-                <span className="text-[#8a998f]">Diferença atual:</span>
-                <span className={userFairDifference <= 0 ? 'font-bold text-emerald-700' : 'font-bold text-amber-700'}>
-                  {userFairDifference <= 0 ? `+${formatCurrency(Math.abs(userFairDifference))} pagos` : `${formatCurrency(-userFairDifference)} a pagar`}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ---------------- SEÇÃO DE STATUS DE PAGAMENTOS DO MÊS (PAGO VS PENDENTE) ---------------- */}
-        <div className="mt-6 rounded-3xl border border-[#dfe8e1] bg-white p-5 sm:p-6 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#edf2ee] pb-3 mb-4">
-            <div>
-              <h3 className="text-sm font-bold text-[#173d2a] flex items-center gap-2">
-                <span>⚡</span> Fluxo de Caixa Real do Mês (Pago vs Pendente)
-              </h3>
-              <p className="text-xs text-[#8a998f]">
-                Clique no selo de qualquer conta para alternar rapidamente entre <strong>⏳ Pendente</strong> e <strong>✅ Pago</strong>.
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs">
-              <span className="rounded-full bg-[#edf5ef] border border-[#d8e5dc] px-3 py-1 font-bold text-[#245439]">
-                {paidPercent.toFixed(0)}% Pago
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div className="p-3.5 rounded-2xl bg-[#fafcfb] border border-[#edf2ee]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f]">
-                Total de Contas
-              </span>
-              <p className="text-xl font-black text-[#173d2a] mt-0.5">
-                {formatCurrency(totalFixedCosts)}
-              </p>
-              <p className="text-[10px] text-[#718078] mt-0.5">
-                {allCosts.length} {allCosts.length === 1 ? 'despesa cadastrada' : 'despesas cadastradas'}
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#edf5ef] border border-[#d8e5dc]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">
-                ✅ Já Pago no Mês
-              </span>
-              <p className="text-xl font-black text-emerald-800 mt-0.5">
-                {formatCurrency(paidCostsTotal)}
-              </p>
-              <p className="text-[10px] text-emerald-700 mt-0.5">
-                {allCosts.filter((c) => c.paymentStatus === 'paid').length} contas quitadas
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#fffbeb] border border-[#fef3c7]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
-                ⏳ Ainda Pendente
-              </span>
-              <p className="text-xl font-black text-amber-800 mt-0.5">
-                {formatCurrency(pendingCostsTotal)}
-              </p>
-              <p className="text-[10px] text-amber-700 mt-0.5">
-                {allCosts.filter((c) => c.paymentStatus !== 'paid').length} contas a vencer
-              </p>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-[#fafcfb] border border-[#edf2ee]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f]">
-                Por Método
-              </span>
-              <div className="mt-1 space-y-0.5 text-xs font-semibold text-[#173d2a]">
-                <p>⚡ PIX/Conta: {formatCurrency(pixBoletoTotal)}</p>
-                <p>💳 Cartão: {formatCurrency(creditCardCostsTotal)}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Barra de Progresso de Quitação */}
-          <div className="mt-4">
-            <div className="h-2.5 w-full rounded-full bg-[#edf2ee] overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[#5d9873] transition-all duration-500"
-                style={{ width: `${paidPercent}%` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* ---------------- SELETOR DAS 3 VISÕES ESTRATÉGICAS ---------------- */}
-        <div className="mt-8">
-          <div className="flex rounded-2xl bg-[#e9eee9] p-1.5 gap-1 max-w-xl mx-auto sm:mx-0">
-            <button
-              type="button"
-              onClick={() => setActiveTab('flow')}
-              className={`flex-1 rounded-xl py-2 px-3 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'flow'
-                  ? 'bg-white text-[#173d2a] shadow-xs'
-                  : 'text-[#64736a] hover:text-[#173d2a]'
-              }`}
-            >
-              <span>🏡</span> Fluxo da Casa
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('balance')}
-              className={`flex-1 rounded-xl py-2 px-3 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'balance'
-                  ? 'bg-white text-[#173d2a] shadow-xs'
-                  : 'text-[#64736a] hover:text-[#173d2a]'
-              }`}
-            >
-              <span>⚖️</span> Divisão & Proporção
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('individual')}
-              className={`flex-1 rounded-xl py-2 px-3 text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1.5 ${
-                activeTab === 'individual'
-                  ? 'bg-white text-[#173d2a] shadow-xs'
-                  : 'text-[#64736a] hover:text-[#173d2a]'
-              }`}
-            >
-              <span>👤</span> Visão Individual
-            </button>
-          </div>
-
-          {/* CONTEÚDO DA VISÃO 1: FLUXO CONSOLIDADO DA CASA */}
-          {activeTab === 'flow' && (
-            <div className="mt-5 space-y-4 animate-in fade-in duration-200">
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                {/* Renda Total */}
-                <div className="rounded-3xl border border-[#dfe8e1] bg-white p-5 shadow-xs">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8a998f]">
-                    1. Renda Total da Casa
-                  </span>
-                  <p className="mt-1.5 text-2xl font-black text-[#173d2a]">
-                    {formatCurrency(totalIncome)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[#64736a]">
-                    Você ({formatCurrency(userIncome)}) + {partnerNameInput} ({formatCurrency(partnerIncome)})
-                  </p>
-                </div>
-
-                {/* Custos Fixos Totais */}
-                <div className="rounded-3xl border border-[#dfe8e1] bg-white p-5 shadow-xs">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8a998f]">
-                    2. (−) Custos Fixos Totais
-                  </span>
-                  <p className="mt-1.5 text-2xl font-bold text-[#30483a]">
-                    {formatCurrency(totalFixedCosts)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[#64736a]">
-                    Suas contas ({formatCurrency(userFixedCostsTotal)}) + Dela ({formatCurrency(partnerFixedCostsTotal)})
-                  </p>
-                </div>
-
-                {/* Seus Cartões */}
-                <div className="rounded-3xl border border-[#dfe8e1] bg-white p-5 shadow-xs">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#8a998f]">
-                    3. (−) Seus Cartões
-                  </span>
-                  <p className="mt-1.5 text-2xl font-bold text-rose-600">
-                    {formatCurrency(userCardsAmount)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[#8a998f]">
-                    Gastos no seu cartão no mês
-                  </p>
-                </div>
-
-                {/* Sobra Real da Casa */}
-                <div className="rounded-3xl bg-[#173d2a] p-5 text-white shadow-md">
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-[#b7d7c5]">
-                    4. (=) Sobra Real da Casa
-                  </span>
-                  <p className="mt-1.5 text-2xl sm:text-3xl font-black tracking-tight text-white">
-                    {formatCurrency(houseNetSurplus)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-[#b7d7c5]">
-                    Poder de poupança / Caixinhas
-                  </p>
-                </div>
-              </div>
-
-              {/* Dica de Caixinhas */}
-              <div className="rounded-2xl bg-[#edf5ef] border border-[#d8e5dc] p-4 text-xs text-[#245439] flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">🎯</span>
-                  <span>
-                    Neste mês, o casal possui <strong>{formatCurrency(Math.max(0, houseNetSurplus))}</strong> de sobra conjunta que pode ser aportada na <strong>Reserva de Emergência</strong> ou em <strong>Caixinhas de Objetivos</strong>.
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* CONTEÚDO DA VISÃO 2: EQUILÍBRIO & PROPORCIONALIDADE */}
-          {activeTab === 'balance' && (
-            <div className="mt-5 rounded-3xl border border-[#dfe8e1] bg-white p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in duration-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#edf2ee] pb-4">
-                <div>
-                  <h3 className="text-lg font-bold text-[#173d2a]">
-                    Equilíbrio na Divisão de Contas
-                  </h3>
-                  <p className="text-xs text-[#64736a]">
-                    Compare a proporção da renda que cada um traz para a casa com a proporção das contas que cada um paga.
-                  </p>
-                </div>
-                <div className="rounded-full bg-[#edf5ef] border border-[#d8e5dc] px-3 py-1 text-xs font-semibold text-[#173d2a] self-start sm:self-auto">
-                  Custos Totais: {formatCurrency(totalFixedCosts)}
-                </div>
-              </div>
-
-              {/* Gráfico de Barras Comparativo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                {/* 1. Proporção de Renda */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#30483a]">
-                    <span>Proporção de Renda da Casa</span>
-                    <span>
-                      Você {userIncomePercent.toFixed(0)}% vs {partnerIncomePercent.toFixed(0)}% {partnerNameInput}
-                    </span>
-                  </div>
-                  <div className="h-4 w-full rounded-full bg-[#edf2ee] overflow-hidden flex">
-                    <div
-                      style={{ width: `${userIncomePercent}%` }}
-                      className="bg-[#173d2a] h-full flex items-center justify-center text-[10px] text-white font-bold"
-                    >
-                      {userIncomePercent > 15 ? `${userIncomePercent.toFixed(0)}%` : ''}
-                    </div>
-                    <div
-                      style={{ width: `${partnerIncomePercent}%` }}
-                      className="bg-[#79ad89] h-full flex items-center justify-center text-[10px] text-white font-bold"
-                    >
-                      {partnerIncomePercent > 15 ? `${partnerIncomePercent.toFixed(0)}%` : ''}
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-[#718078]">
-                    <span>Você: {formatCurrency(userIncome)}</span>
-                    <span>{partnerNameInput}: {formatCurrency(partnerIncome)}</span>
-                  </div>
-                </div>
-
-                {/* 2. Proporção de Contas Pagas */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-[#30483a]">
-                    <span>Proporção Real de Contas Pagas</span>
-                    <span>
-                      Você {userPaidPercent.toFixed(0)}% vs {partnerPaidPercent.toFixed(0)}% {partnerNameInput}
-                    </span>
-                  </div>
-                  <div className="h-4 w-full rounded-full bg-[#edf2ee] overflow-hidden flex">
-                    <div
-                      style={{ width: `${userPaidPercent}%` }}
-                      className="bg-[#173d2a] h-full flex items-center justify-center text-[10px] text-white font-bold"
-                    >
-                      {userPaidPercent > 15 ? `${userPaidPercent.toFixed(0)}%` : ''}
-                    </div>
-                    <div
-                      style={{ width: `${partnerPaidPercent}%` }}
-                      className="bg-[#79ad89] h-full flex items-center justify-center text-[10px] text-white font-bold"
-                    >
-                      {partnerPaidPercent > 15 ? `${partnerPaidPercent.toFixed(0)}%` : ''}
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-[11px] text-[#718078]">
-                    <span>Você: {formatCurrency(userFixedCostsTotal)}</span>
-                    <span>{partnerNameInput}: {formatCurrency(partnerFixedCostsTotal)}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Tabela Comparativa: Proporcional vs 50/50 */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="border-b border-[#edf2ee] text-[#8a998f] uppercase tracking-wider text-[10px]">
-                      <th className="py-2.5 font-bold">Modelo de Divisão</th>
-                      <th className="py-2.5 font-bold">Sua Parcela</th>
-                      <th className="py-2.5 font-bold">Parcela de {partnerNameInput}</th>
-                      <th className="py-2.5 font-bold text-right">Situação Atual</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#edf2ee] font-semibold text-[#173d2a]">
-                    <tr>
-                      <td className="py-3">
-                        <span className="font-bold">Divisão Atual</span>
-                        <p className="text-[10px] font-normal text-[#8a998f]">Soma das contas cadastradas</p>
-                      </td>
-                      <td className="py-3">{formatCurrency(userFixedCostsTotal)} ({userPaidPercent.toFixed(0)}%)</td>
-                      <td className="py-3">{formatCurrency(partnerFixedCostsTotal)} ({partnerPaidPercent.toFixed(0)}%)</td>
-                      <td className="py-3 text-right text-[#5d9873]">Em vigor</td>
-                    </tr>
-                    <tr className="bg-[#edf5ef]/40">
-                      <td className="py-3 font-bold text-[#173d2a]">
-                        <span>Divisão Proporcional à Renda ({userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)</span>
-                        <p className="text-[10px] font-normal text-[#5a8067]">Mais justa: quem ganha mais paga proporcionalmente mais</p>
-                      </td>
-                      <td className="py-3 text-[#173d2a] font-bold">{formatCurrency(idealUserShare)} ({userIncomePercent.toFixed(0)}%)</td>
-                      <td className="py-3 text-[#173d2a] font-bold">{formatCurrency(idealPartnerShare)} ({partnerIncomePercent.toFixed(0)}%)</td>
-                      <td className="py-3 text-right font-bold">
-                        {Math.abs(userFairDifference) < 1
-                          ? '✓ 100% Equilibrado'
-                          : userFairDifference > 0
-                          ? `Ela transfere ${formatCurrency(userFairDifference)}`
-                          : `Você transfere ${formatCurrency(Math.abs(userFairDifference))}`}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="py-3">
-                        <span className="font-bold">Divisão 50% / 50%</span>
-                        <p className="text-[10px] font-normal text-[#8a998f]">Metade exata para cada um</p>
-                      </td>
-                      <td className="py-3">{formatCurrency(halfShare)} (50%)</td>
-                      <td className="py-3">{formatCurrency(halfShare)} (50%)</td>
-                      <td className="py-3 text-right text-[#64736a]">
-                        Diferença de {formatCurrency(Math.abs(userFixedCostsTotal - halfShare))}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* CONTEÚDO DA VISÃO 3: INDIVIDUAL & AUTONOMIA */}
-          {activeTab === 'individual' && (
-            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-5 animate-in fade-in duration-200">
-              {/* Seu Espaço Pessoal */}
-              <div className="rounded-3xl border border-[#b7d7c5] bg-gradient-to-br from-white to-[#f4f9f5] p-6 shadow-xs">
+        {/* ---------------- AS 3 GRANDES RESPOSTAS: QUANTO SOBRA E APORTE NA RESERVA ---------------- */}
+        <section className="mt-8 space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1: Quanto Sobra para Você */}
+            <div className="rounded-3xl border border-[#b7d7c5] bg-gradient-to-br from-white via-white to-[#f4f9f5] p-6 shadow-xs flex flex-col justify-between">
+              <div>
                 <div className="flex items-center justify-between border-b border-[#edf2ee] pb-3">
                   <div className="flex items-center gap-2">
                     <span className="grid size-8 place-items-center rounded-xl bg-[#173d2a] text-white text-sm">
                       👤
                     </span>
                     <h3 className="text-base font-bold text-[#173d2a]">
-                      Seu Espaço Pessoal (Você)
+                      Sobra para Você
                     </h3>
                   </div>
-                  <span className="text-[11px] font-bold text-[#5d9873] bg-[#edf5ef] px-2.5 py-0.5 rounded-full">
-                    Sua Autonomia
+                  <span className="text-[10px] font-extrabold text-[#173d2a] bg-[#edf5ef] px-2 py-0.5 rounded-full">
+                    {userIncomePercent.toFixed(0)}% Renda
                   </span>
                 </div>
 
-                <div className="mt-4 space-y-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#64736a]">Sua Renda / Salário:</span>
+                <div className="mt-4 space-y-2.5 text-xs text-[#64736a]">
+                  <div className="flex justify-between">
+                    <span>Sua Renda:</span>
                     <span className="font-bold text-[#173d2a]">{formatCurrency(userIncome)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#64736a]">(−) Suas Contas Fixas:</span>
-                    <span className="font-bold text-[#30483a]">− {formatCurrency(userFixedCostsTotal)}</span>
+                  <div className="flex justify-between">
+                    <span>(−) Suas Contas Assumidas:</span>
+                    <span className="font-bold text-rose-600">− {formatCurrency(userCostsTotal)}</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#64736a]">(−) Seus Cartões de Crédito:</span>
-                    <span className="font-bold text-rose-600">− {formatCurrency(userCardsAmount)}</span>
+                  <div className="flex justify-between pt-1 border-t border-[#edf2ee] text-[11px]">
+                    <span className="text-[#8a998f]">Sua Sobra Bruta:</span>
+                    <span className="font-bold text-[#173d2a]">{formatCurrency(userSurplus)}</span>
                   </div>
                 </div>
-
-                <div className="mt-5 pt-4 border-t border-[#edf2ee] flex items-baseline justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#30483a]">
-                    Seu Saldo Livre Real
-                  </span>
-                  <span className="text-2xl font-black text-[#173d2a]">
-                    {formatCurrency(userFreeBalance)}
-                  </span>
-                </div>
-                <p className="mt-1 text-[11px] text-[#8a998f]">
-                  Disponível para suas despesas pessoais ou aportes.
-                </p>
               </div>
 
-              {/* Espaço da Parceira */}
-              <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-xs">
+              <div className="mt-5 pt-4 border-t border-[#edf2ee] space-y-2.5">
+                <div className="rounded-2xl bg-[#edf5ef] p-3 border border-[#d8e5dc]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
+                      🌱 Aporte Sugerido (20%)
+                    </span>
+                    <span className="text-xs font-black text-emerald-900">
+                      {formatCurrency(userRecommendedAporte)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                    Destinado à Reserva / Patrimônio
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8a998f] block">
+                    Saldo 100% Livre (80%)
+                  </span>
+                  <p className="text-2xl sm:text-3xl font-black text-[#173d2a] mt-0.5">
+                    {formatCurrency(userFreeAfterAporte)}
+                  </p>
+                  <p className="text-[11px] text-[#5d9873] mt-0.5 font-medium">
+                    {userFreeAfterAporte >= 0 ? '✓ Livre para estilo de vida e gastos pessoais' : '⚠ Custos superam a renda'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Quanto Sobra para Ela */}
+            <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-xs flex flex-col justify-between">
+              <div>
                 <div className="flex items-center justify-between border-b border-[#edf2ee] pb-3">
                   <div className="flex items-center gap-2">
                     <span className="grid size-8 place-items-center rounded-xl bg-[#79ad89] text-white text-sm">
                       👩
                     </span>
                     <h3 className="text-base font-bold text-[#173d2a]">
-                      Espaço Pessoal ({partnerNameInput})
+                      Sobra para {partnerNameInput}
                     </h3>
                   </div>
-                  <span className="text-[11px] font-bold text-[#718078] bg-[#f7f8f5] px-2.5 py-0.5 rounded-full">
-                    100% Autonomia Dela
+                  <span className="text-[10px] font-extrabold text-[#5a8067] bg-[#edf5ef] px-2 py-0.5 rounded-full">
+                    {partnerIncomePercent.toFixed(0)}% Renda
                   </span>
                 </div>
 
-                <div className="mt-4 space-y-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[#64736a]">Renda Dela:</span>
+                <div className="mt-4 space-y-2.5 text-xs text-[#64736a]">
+                  <div className="flex justify-between">
+                    <span>Renda Dela:</span>
                     <span className="font-bold text-[#173d2a]">{formatCurrency(partnerIncome)}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span>(−) Contas Assumidas por Ela:</span>
+                    <span className="font-bold text-rose-600">− {formatCurrency(partnerCostsTotal)}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-[#edf2ee] text-[11px]">
+                    <span className="text-[#8a998f]">Sobra Bruta Dela:</span>
+                    <span className="font-bold text-[#173d2a]">{formatCurrency(partnerSurplus)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-[#edf2ee] space-y-2.5">
+                <div className="rounded-2xl bg-[#edf5ef] p-3 border border-[#d8e5dc]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[#64736a]">(−) Contas Fixas Dela:</span>
-                    <span className="font-bold text-[#30483a]">− {formatCurrency(partnerFixedCostsTotal)}</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800">
+                      🌱 Aporte Sugerido (20%)
+                    </span>
+                    <span className="text-xs font-black text-emerald-900">
+                      {formatCurrency(partnerRecommendedAporte)}
+                    </span>
                   </div>
-                  <div className="flex items-center justify-between text-[#8a998f]">
-                    <span>(−) Cartões e Gastos Pessoais Dela:</span>
-                    <span className="italic">Autônomo (não controlado)</span>
-                  </div>
+                  <p className="text-[10px] text-emerald-700 mt-0.5">
+                    Destinado à Reserva / Patrimônio
+                  </p>
                 </div>
 
-                <div className="mt-5 pt-4 border-t border-[#edf2ee] flex items-baseline justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#30483a]">
-                    Saldo Disponível Dela
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#8a998f] block">
+                    Saldo 100% Livre Dela (80%)
                   </span>
-                  <span className="text-2xl font-black text-[#173d2a]">
-                    {formatCurrency(partnerAvailableBalance)}
-                  </span>
+                  <p className="text-2xl sm:text-3xl font-black text-[#173d2a] mt-0.5">
+                    {formatCurrency(partnerFreeAfterAporte)}
+                  </p>
+                  <p className="text-[11px] text-[#5d9873] mt-0.5 font-medium">
+                    {partnerFreeAfterAporte >= 0 ? '✓ Livre para escolhas pessoais dela' : '⚠ Custos superam a renda'}
+                  </p>
                 </div>
-                <p className="mt-1 text-[11px] text-[#8a998f]">
-                  Livre para ela pagar os cartões dela e fazer escolhas pessoais sem micro-controle.
-                </p>
               </div>
             </div>
-          )}
-        </div>
 
-        {/* ---------------- SEÇÃO 2: GERENCIAMENTO DAS CONTAS DO MÊS ---------------- */}
-        <section className="mt-12">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            {/* Card 3: Aporte na Reserva de Emergência / Patrimônio */}
+            <div className="rounded-3xl bg-[#173d2a] p-6 text-white shadow-md flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between border-b border-white/15 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="grid size-8 place-items-center rounded-xl bg-white/20 text-white text-sm">
+                      🛡️
+                    </span>
+                    <h3 className="text-base font-bold text-white">
+                      Aporte Recomendado (20%)
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-extrabold text-[#b7d7c5] bg-white/10 px-2 py-0.5 rounded-full">
+                    Reserva / Patrimônio
+                  </span>
+                </div>
+
+                <div className="mt-4 space-y-2 text-xs text-[#b7d7c5]">
+                  <div className="flex justify-between">
+                    <span>Sobra Total da Casa:</span>
+                    <span className="font-bold text-white">{formatCurrency(houseTotalSurplus)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Aporte Sugerido de Você:</span>
+                    <span className="font-semibold text-white">{formatCurrency(userRecommendedAporte)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Aporte Sugerido de {partnerNameInput}:</span>
+                    <span className="font-semibold text-white">{formatCurrency(partnerRecommendedAporte)}</span>
+                  </div>
+                  <div className="flex justify-between pt-1 border-t border-white/15 text-[11px]">
+                    <span>Meta da Reserva (6 meses):</span>
+                    <span className="font-bold text-white">{formatCurrency(emergencyReserveTarget)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 pt-4 border-t border-white/15">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#b7d7c5] block">
+                  Aporte Conjunto Sugerido (20%)
+                </span>
+                <p className="text-3xl font-black text-white mt-0.5">
+                  {formatCurrency(houseRecommendedAporte)}
+                  <span className="text-xs font-normal text-[#b7d7c5]"> /mês</span>
+                </p>
+
+                {houseRecommendedAporte > 0 && monthsToCompleteWithRecommended !== null ? (
+                  <div className="mt-2 rounded-xl bg-white/10 p-2.5 text-[11px] text-[#d6ede0] space-y-1">
+                    <p>
+                      💡 Com <strong>20% ({formatCurrency(houseRecommendedAporte)}/mês)</strong>: conclui a Reserva em <strong>{monthsToCompleteWithRecommended} {monthsToCompleteWithRecommended === 1 ? 'mês' : 'meses'}</strong>.
+                    </p>
+                    {monthsToCompleteWithFullSurplus !== null && (
+                      <p className="text-[10px] text-[#a4d4b7]">
+                        ⚡ Se aportarem 100% da sobra ({formatCurrency(houseTotalSurplus)}/mês): conclui em <strong>{monthsToCompleteWithFullSurplus} {monthsToCompleteWithFullSurplus === 1 ? 'mês' : 'meses'}</strong>!
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#b7d7c5] mt-1">
+                    Cadastre suas rendas e despesas para projetar o aporte.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ---------------- CARD DE ACERTO PROPORCIONAL (80% / 20%) ---------------- */}
+          <div className="rounded-3xl border border-[#b7d7c5] bg-white p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-[#edf5ef] px-3 py-1 text-xs font-bold text-[#173d2a]">
+                <span>⚖️</span> Divisão Justa Proporcional ({userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)
+              </div>
+              <p className="text-xs text-[#64736a]">
+                Como você tem <strong>{userIncomePercent.toFixed(0)}%</strong> da renda e {partnerNameInput} tem <strong>{partnerIncomePercent.toFixed(0)}%</strong>, para a conta ser justa você deve arcar com <strong>{formatCurrency(idealUserShare)}</strong> e ela com <strong>{formatCurrency(idealPartnerShare)}</strong>.
+              </p>
+            </div>
+
+            <div className="rounded-2xl bg-[#fafcfb] border border-[#d8e1da] p-3.5 shrink-0 max-w-sm">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#8a998f] block">
+                Acerto do Casal no Mês
+              </span>
+              {totalHouseCosts === 0 ? (
+                <p className="text-xs font-semibold text-[#8a998f] mt-0.5">Nenhuma conta cadastrada.</p>
+              ) : Math.abs(userFairDifference) < 1 ? (
+                <p className="text-sm font-bold text-emerald-700 mt-0.5">
+                  ✓ Contas 100% equilibradas na proporção justa!
+                </p>
+              ) : userFairDifference > 0 ? (
+                <div className="mt-0.5">
+                  <p className="text-sm font-black text-[#173d2a]">
+                    {partnerNameInput} transfere <span className="text-emerald-700">{formatCurrency(userFairDifference)}</span> para você
+                  </p>
+                  <p className="text-[10px] text-[#8a998f] mt-0.5">
+                    (Para fechar exatamente em {userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-0.5">
+                  <p className="text-sm font-black text-[#173d2a]">
+                    Você transfere <span className="text-emerald-700">{formatCurrency(Math.abs(userFairDifference))}</span> para {partnerNameInput}
+                  </p>
+                  <p className="text-[10px] text-[#8a998f] mt-0.5">
+                    (Para fechar exatamente em {userIncomePercent.toFixed(0)}% / {partnerIncomePercent.toFixed(0)}%)
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ---------------- SEÇÃO: GERENCIAMENTO DAS CONTAS DA CASA ---------------- */}
+        <section className="mt-10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
             <div>
               <h2 className="text-xl font-bold text-[#173d2a] flex items-center gap-2">
-                <span>📋</span> Contas e Despesas do Mês Atual
+                <span>📋</span> Despesas da Casa no Mês
               </h2>
               <p className="text-xs text-[#8a998f]">
-                Ajuste os valores, marque o status de pagamento e adicione despesas. Alterações feitas aqui <strong>não modificam</strong> sua tela mestra de Custos Fixos.
+                Cadastre e edite as contas que cada um assume no mês.
               </p>
+            </div>
+            <div className="text-xs font-bold text-[#173d2a] bg-white border border-[#dfe8e1] px-4 py-2 rounded-2xl shadow-2xs">
+              Custos Totais: {formatCurrency(totalHouseCosts)}
             </div>
           </div>
 
@@ -892,10 +558,10 @@ export function OrcamentoFamiliarPage({
                 <div className="flex items-center justify-between border-b border-[#edf2ee] pb-3 mb-4">
                   <div>
                     <h3 className="text-base font-bold text-[#173d2a] flex items-center gap-2">
-                      <span>👤</span> Suas Contas Fixas (Você)
+                      <span>👤</span> Suas Contas (Você)
                     </h3>
-                    <span className="text-xs font-semibold text-[#5d9873]">
-                      Total: {formatCurrency(userFixedCostsTotal)}
+                    <span className="text-xs font-bold text-[#5d9873]">
+                      Total Assumido: {formatCurrency(userCostsTotal)}
                     </span>
                   </div>
 
@@ -920,104 +586,63 @@ export function OrcamentoFamiliarPage({
                     Nenhuma conta sua cadastrada no orçamento deste mês.
                   </p>
                 ) : (
-                  <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                    {orcamentoData.userFixedCosts.map((cost) => {
-                      const isPaid = cost.paymentStatus === 'paid'
-                      const isCard = cost.paymentMethod === 'credit_card'
-
-                      return (
-                        <div
-                          key={cost.id}
-                          className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition ${
-                            isPaid
-                              ? 'bg-[#f4f9f5] border-[#d8e5dc]'
-                              : 'bg-[#fafcfb] border-[#edf2ee] hover:border-[#d8e1da]'
-                          }`}
-                        >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            {/* Toggle de 1 clique para status Pago */}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleCostStatus(cost.id, 'user')}
-                              className={`grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold transition cursor-pointer ${
-                                isPaid
-                                  ? 'bg-emerald-600 text-white shadow-2xs'
-                                  : 'border border-[#d8e1da] text-[#8a998f] hover:border-emerald-500 hover:text-emerald-700 bg-white'
-                              }`}
-                              title={isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
-                            >
-                              {isPaid ? '✓' : ''}
-                            </button>
-
-                            <div className="min-w-0">
-                              <h4
-                                className={`text-xs font-bold truncate ${
-                                  isPaid ? 'line-through text-[#64736a]' : 'text-[#173d2a]'
-                                }`}
-                              >
-                                {cost.name}
-                              </h4>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-[#8a998f]">
-                                  {cost.category || 'Geral'}
-                                </span>
-                                <span className="text-[10px] text-[#b7d7c5]">•</span>
-                                <span
-                                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
-                                    isCard
-                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  }`}
-                                >
-                                  {isCard ? '💳 Cartão' : '⚡ PIX'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {/* Edição inline do valor */}
-                            <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
-                              <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                defaultValue={formatMoneyInput(cost.amount)}
-                                onBlur={(e) => {
-                                  const val = parseMoney(e.target.value)
-                                  handleInlineUpdateAmount(cost.id, val, 'user')
-                                }}
-                                className="w-20 text-xs font-bold text-[#173d2a] outline-none"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCostModalState({
-                                  isOpen: true,
-                                  target: 'user',
-                                  costToEdit: cost,
-                                })
-                              }
-                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                              title="Editar"
-                            >
-                              ✏️
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCostItem(cost.id, 'user')}
-                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-                              title="Remover do mês"
-                            >
-                              ✕
-                            </button>
-                          </div>
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {orcamentoData.userFixedCosts.map((cost) => (
+                      <div
+                        key={cost.id}
+                        className="flex items-center justify-between gap-3 p-3 rounded-2xl border border-[#edf2ee] bg-[#fafcfb] hover:border-[#d8e1da] transition"
+                      >
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-[#173d2a] truncate">
+                            {cost.name}
+                          </h4>
+                          <span className="text-[10px] text-[#8a998f]">
+                            {cost.category || 'Geral'}
+                          </span>
                         </div>
-                      )
-                    })}
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Edição inline do valor */}
+                          <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
+                            <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={formatMoneyInput(cost.amount)}
+                              onBlur={(e) => {
+                                const val = parseMoney(e.target.value)
+                                handleInlineUpdateAmount(cost.id, val, 'user')
+                              }}
+                              className="w-20 text-xs font-bold text-[#173d2a] outline-none"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCostModalState({
+                                isOpen: true,
+                                target: 'user',
+                                costToEdit: cost,
+                              })
+                            }
+                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCostItem(cost.id, 'user')}
+                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                            title="Remover"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1029,10 +654,10 @@ export function OrcamentoFamiliarPage({
                 <div className="flex items-center justify-between border-b border-[#edf2ee] pb-3 mb-4">
                   <div>
                     <h3 className="text-base font-bold text-[#173d2a] flex items-center gap-2">
-                      <span>👩</span> Contas Fixas ({partnerNameInput})
+                      <span>👩</span> Contas de {partnerNameInput}
                     </h3>
-                    <span className="text-xs font-semibold text-[#5d9873]">
-                      Total: {formatCurrency(partnerFixedCostsTotal)}
+                    <span className="text-xs font-bold text-[#5d9873]">
+                      Total Assumido: {formatCurrency(partnerCostsTotal)}
                     </span>
                   </div>
 
@@ -1055,7 +680,7 @@ export function OrcamentoFamiliarPage({
                 {orcamentoData.partnerFixedCosts.length === 0 ? (
                   <div className="py-8 text-center">
                     <p className="text-xs text-[#8a998f]">
-                      Nenhuma conta de {partnerNameInput} cadastrada ainda.
+                      Nenhuma conta cadastrada para {partnerNameInput}.
                     </p>
                     <button
                       type="button"
@@ -1066,110 +691,69 @@ export function OrcamentoFamiliarPage({
                           costToEdit: null,
                         })
                       }
-                      className="mt-3 text-xs font-bold text-[#5d9873] hover:underline cursor-pointer"
+                      className="mt-2 text-xs font-bold text-[#5d9873] hover:underline cursor-pointer"
                     >
                       + Cadastrar primeira conta dela
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-2.5 max-h-96 overflow-y-auto pr-1">
-                    {orcamentoData.partnerFixedCosts.map((cost) => {
-                      const isPaid = cost.paymentStatus === 'paid'
-                      const isCard = cost.paymentMethod === 'credit_card'
-
-                      return (
-                        <div
-                          key={cost.id}
-                          className={`flex items-center justify-between gap-3 p-3 rounded-2xl border transition ${
-                            isPaid
-                              ? 'bg-[#f4f9f5] border-[#d8e5dc]'
-                              : 'bg-[#fafcfb] border-[#edf2ee] hover:border-[#d8e1da]'
-                          }`}
-                        >
-                          <div className="min-w-0 flex items-center gap-2.5">
-                            {/* Toggle de 1 clique para status Pago */}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleCostStatus(cost.id, 'partner')}
-                              className={`grid size-6 shrink-0 place-items-center rounded-lg text-xs font-bold transition cursor-pointer ${
-                                isPaid
-                                  ? 'bg-emerald-600 text-white shadow-2xs'
-                                  : 'border border-[#d8e1da] text-[#8a998f] hover:border-emerald-500 hover:text-emerald-700 bg-white'
-                              }`}
-                              title={isPaid ? 'Marcar como Pendente' : 'Marcar como Pago'}
-                            >
-                              {isPaid ? '✓' : ''}
-                            </button>
-
-                            <div className="min-w-0">
-                              <h4
-                                className={`text-xs font-bold truncate ${
-                                  isPaid ? 'line-through text-[#64736a]' : 'text-[#173d2a]'
-                                }`}
-                              >
-                                {cost.name}
-                              </h4>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-[#8a998f]">
-                                  {cost.category || 'Geral'}
-                                </span>
-                                <span className="text-[10px] text-[#b7d7c5]">•</span>
-                                <span
-                                  className={`text-[9px] font-bold px-1.5 py-0.2 rounded-md ${
-                                    isCard
-                                      ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                                  }`}
-                                >
-                                  {isCard ? '💳 Cartão' : '⚡ PIX'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-2 shrink-0">
-                            {/* Edição inline do valor */}
-                            <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
-                              <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                defaultValue={formatMoneyInput(cost.amount)}
-                                onBlur={(e) => {
-                                  const val = parseMoney(e.target.value)
-                                  handleInlineUpdateAmount(cost.id, val, 'partner')
-                                }}
-                                className="w-20 text-xs font-bold text-[#173d2a] outline-none"
-                              />
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setCostModalState({
-                                  isOpen: true,
-                                  target: 'partner',
-                                  costToEdit: cost,
-                                })
-                              }
-                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                              title="Editar"
-                            >
-                              ✏️
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteCostItem(cost.id, 'partner')}
-                              className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-                              title="Remover do mês"
-                            >
-                              ✕
-                            </button>
-                          </div>
+                  <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
+                    {orcamentoData.partnerFixedCosts.map((cost) => (
+                      <div
+                        key={cost.id}
+                        className="flex items-center justify-between gap-3 p-3 rounded-2xl border border-[#edf2ee] bg-[#fafcfb] hover:border-[#d8e1da] transition"
+                      >
+                        <div className="min-w-0">
+                          <h4 className="text-xs font-bold text-[#173d2a] truncate">
+                            {cost.name}
+                          </h4>
+                          <span className="text-[10px] text-[#8a998f]">
+                            {cost.category || 'Geral'}
+                          </span>
                         </div>
-                      )
-                    })}
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Edição inline do valor */}
+                          <div className="relative rounded-xl border border-[#d8e1da] bg-white px-2.5 py-1.5 focus-within:border-[#5d9873] transition">
+                            <span className="text-[10px] font-bold text-[#8a998f] mr-1">R$</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              defaultValue={formatMoneyInput(cost.amount)}
+                              onBlur={(e) => {
+                                const val = parseMoney(e.target.value)
+                                handleInlineUpdateAmount(cost.id, val, 'partner')
+                              }}
+                              className="w-20 text-xs font-bold text-[#173d2a] outline-none"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setCostModalState({
+                                isOpen: true,
+                                target: 'partner',
+                                costToEdit: cost,
+                              })
+                            }
+                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                            title="Editar"
+                          >
+                            ✏️
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCostItem(cost.id, 'partner')}
+                            className="grid size-7 place-items-center rounded-lg text-[#8a998f] hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                            title="Remover"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -1195,7 +779,7 @@ export function OrcamentoFamiliarPage({
                 Zerar Contas do Mês Atual?
               </h3>
               <p className="mt-2 text-xs sm:text-sm text-[#64736a] leading-relaxed">
-                Esta ação vai limpar todas as contas cadastradas neste orçamento mensal e zerar o valor de cartões.
+                Esta ação vai limpar todas as despesas cadastradas neste orçamento mensal.
                 Suas listas mestras de Custos Fixos e Contas Bancárias <strong>não</strong> serão afetadas.
               </p>
 

@@ -176,16 +176,11 @@ export interface Caixinha {
   updatedAt?: string
 }
 
-export type PaymentMethod = 'pix_boleto' | 'credit_card'
-export type PaymentStatus = 'pending' | 'paid'
-
 export interface OrcamentoCostItem {
   id: string
   name: string
   amount: number
   category?: string
-  paymentMethod?: PaymentMethod
-  paymentStatus?: PaymentStatus
 }
 
 export interface OrcamentoFamiliarData {
@@ -195,7 +190,6 @@ export interface OrcamentoFamiliarData {
   partnerIncome: number
   userFixedCosts: OrcamentoCostItem[]
   partnerFixedCosts: OrcamentoCostItem[]
-  userCreditCardsAmount: number
   notes?: string
   updatedAt?: string
 }

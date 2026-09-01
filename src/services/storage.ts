@@ -652,7 +652,6 @@ export function getOrCreateOrcamentoFamiliar(defaults: {
   partnerName: string
   partnerIncome: number
   userFixedCosts: OrcamentoCostItem[]
-  userCreditCardsAmount: number
 }): OrcamentoFamiliarData {
   const monthKey = getCurrentMonthKey()
   const saved = getSavedOrcamentoFamiliar()
@@ -668,7 +667,6 @@ export function getOrCreateOrcamentoFamiliar(defaults: {
     partnerIncome: saved?.partnerIncome ?? defaults.partnerIncome,
     userFixedCosts: defaults.userFixedCosts,
     partnerFixedCosts: saved?.partnerFixedCosts ?? [],
-    userCreditCardsAmount: defaults.userCreditCardsAmount,
     notes: saved?.notes ?? '',
     updatedAt: new Date().toISOString(),
   }

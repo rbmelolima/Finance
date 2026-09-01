@@ -442,17 +442,42 @@ export function calculateCarteiraTotals(accounts: BankAccount[], cards: CreditCa
   const sortedCards = [...cards].sort((a, b) => (Number(b.invoiceAmount) || 0) - (Number(a.invoiceAmount) || 0))
   const largestCard = sortedCards[0] || null
 
-  // Próximo cartão a vencer
+  // Próximo cartão a fechar a fatura
+  const cardsWithClosingDay = cards
+    .filter((c) => c.closingDay !== undefined && c.closingDay !== null && Number(c.closingDay) > 0)
+    .map((c) => {
+      const closing = Number(c.closingDay)
+      let diff = closing - currentDay
+      if (diff < 0) diff += totalDaysInMonth
+      const daysUntilClosing = Math.max(1, diff + 1)
+      return { card: c, diff, daysUntilClosing }
+    })
+    .sort((a, b) => a.diff - b.diff)
+
+  const nextClosingCardInfo = cardsWithClosingDay[0] || null
+  const nextClosingCard = nextClosingCardInfo ? nextClosingCardInfo.card : null
+  const daysUntilNextClosing = nextClosingCardInfo ? nextClosingCardInfo.daysUntilClosing : null
+
+  // Gasto diário permitido até o próximo fechamento da fatura
+  const dailyAvailableUntilClosing =
+    netRealBalance > 0 && daysUntilNextClosing && daysUntilNextClosing > 0
+      ? netRealBalance / daysUntilNextClosing
+      : null
+
+  // Próximo cartão a vencer o boleto
   const cardsWithDueDay = cards
     .filter((c) => c.dueDay !== undefined && c.dueDay !== null && Number(c.invoiceAmount) > 0)
     .map((c) => {
       let diff = (c.dueDay || 0) - currentDay
       if (diff < 0) diff += totalDaysInMonth
-      return { card: c, diff }
+      const daysUntilDue = Math.max(1, diff + 1)
+      return { card: c, diff, daysUntilDue }
     })
     .sort((a, b) => a.diff - b.diff)
 
-  const nextDueCard = cardsWithDueDay[0] ? cardsWithDueDay[0].card : null
+  const nextDueCardInfo = cardsWithDueDay[0] || null
+  const nextDueCard = nextDueCardInfo ? nextDueCardInfo.card : null
+  const daysUntilNextDue = nextDueCardInfo ? nextDueCardInfo.daysUntilDue : null
 
   return {
     totalMoneyInAccounts,
@@ -469,9 +494,56 @@ export function calculateCarteiraTotals(accounts: BankAccount[], cards: CreditCa
     largestAccount,
     largestCard,
     nextDueCard,
+    daysUntilNextDue,
+    nextClosingCard,
+    daysUntilNextClosing,
+    dailyAvailableUntilClosing,
+  }
+}
+
+export function getCardTimelineStatus(
+  card: CreditCard,
+  currentDay: number,
+  totalDaysInMonth: number
+) {
+  const closing = card.closingDay ? Number(card.closingDay) : undefined
+  const due = card.dueDay ? Number(card.dueDay) : undefined
+
+  let daysToClose: number | null = null
+  let daysToDue: number | null = null
+  let isInvoiceClosed = false
+
+  if (closing) {
+    let diffClose = closing - currentDay
+    if (diffClose < 0) diffClose += totalDaysInMonth
+    daysToClose = Math.max(1, diffClose + 1)
+
+    if (due) {
+      if (closing < due) {
+        isInvoiceClosed = currentDay > closing && currentDay <= due
+      } else {
+        isInvoiceClosed = currentDay > closing || currentDay <= due
+      }
+    }
+  }
+
+  if (due) {
+    let diffDue = due - currentDay
+    if (diffDue < 0) diffDue += totalDaysInMonth
+    daysToDue = Math.max(1, diffDue + 1)
+  }
+
+  return {
+    closingDay: closing,
+    dueDay: due,
+    daysToClose,
+    daysToDue,
+    isInvoiceClosed,
+    bestPurchaseDay: closing,
   }
 }
 
 export const calculateOverviewTotals = calculateCarteiraTotals
+
 
 

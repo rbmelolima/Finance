@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { calculateCarteiraTotals } from '../../services/storage'
+import { calculateCarteiraTotals, getCardTimelineStatus } from '../../services/storage'
 import type { BankAccount, CreditCard, Screen } from '../../types/finance'
 import { BankLogo } from '../common/BankLogo'
 import { BankAccountModal } from './BankAccountModal'
@@ -50,6 +50,9 @@ export function OverviewPage({
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null)
   const [inlineInvoiceValue, setInlineInvoiceValue] = useState('')
 
+  // Modo de visualização do teto diário: 'closing' (até fechar cartão) ou 'month' (até fim do mês)
+  const [budgetHorizon, setBudgetHorizon] = useState<'closing' | 'month'>('closing')
+
   const totals = calculateCarteiraTotals(bankAccounts, creditCards)
 
   const formattedMoneyInAccounts = new Intl.NumberFormat('pt-BR', {
@@ -67,15 +70,17 @@ export function OverviewPage({
     currency: 'BRL',
   }).format(totals.netRealBalance)
 
-  const formattedDailyAvailable = new Intl.NumberFormat('pt-BR', {
+  const formattedDailyAvailableMonth = new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
   }).format(totals.dailyAvailable)
 
-  const formattedWeeklyAvailable = new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(totals.weeklyAvailable)
+  const formattedDailyAvailableClosing = totals.dailyAvailableUntilClosing !== null
+    ? new Intl.NumberFormat('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+      }).format(totals.dailyAvailableUntilClosing)
+    : formattedDailyAvailableMonth
 
   function handleStartEditBalance(account: BankAccount) {
     setEditingBalanceId(account.id)
@@ -106,20 +111,31 @@ export function OverviewPage({
   const isNetPositive = totals.netRealBalance > 0
   const isNetZero = totals.netRealBalance === 0
 
+  const hasClosingCards = totals.nextClosingCard !== null && totals.daysUntilNextClosing !== null
+  const activeHorizon = hasClosingCards ? budgetHorizon : 'month'
+
+  const displayedDailyAmount =
+    activeHorizon === 'closing' ? formattedDailyAvailableClosing : formattedDailyAvailableMonth
+
+  const displayedDaysCount =
+    activeHorizon === 'closing' && totals.daysUntilNextClosing
+      ? totals.daysUntilNextClosing
+      : totals.daysRemainingInMonth
+
   return (
     <main className="min-h-screen bg-[#f7f8f5]">
-      <div className="mx-auto max-w-6xl px-6 py-10 lg:px-10 lg:py-14">
+      <div className="mx-auto max-w-6xl px-6 py-8 lg:px-10 lg:py-12">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-[#d8e5dc] bg-white/80 px-3 py-1 text-xs font-semibold text-[#5a8067]">
-              <span className="size-2 rounded-full bg-[#79ad89]" /> Carteira & Balanço Imediato
+              <span className="size-2 rounded-full bg-[#79ad89]" /> Carteira & Ciclo de Cartões
             </div>
             <h1 className="mt-2 text-3xl sm:text-4xl font-semibold tracking-[-0.05em] text-[#173d2a]">
               Carteira
             </h1>
             <p className="mt-1 text-sm text-[#64736a]">
-              Controle seu dinheiro em conta vs. cartões a pagar e descubra seu teto diário de gastos.
+              Controle seu dinheiro em conta, faturas a pagar e seu teto diário de gastos até o fechamento da fatura.
             </p>
           </div>
 
@@ -223,52 +239,86 @@ export function OverviewPage({
           </div>
         </div>
 
-        {/* 🌟 SEÇÃO DE INSIGHTS DA CARTEIRA 🌟 */}
+        {/* 🌟 SEÇÃO DE INSIGHTS DA CARTEIRA & FECHAMENTO DO CARTÃO 🌟 */}
         <div className="mt-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div className="flex items-center gap-2">
               <span className="text-lg">💡</span>
               <h2 className="text-base font-bold tracking-tight text-[#173d2a]">
-                Insights do seu Dinheiro
+                Insights do seu Dinheiro & Ciclo de Gastos
               </h2>
             </div>
-            <span className="text-xs font-semibold text-[#5a8067] bg-[#edf5ef] px-3 py-1 rounded-full border border-[#d8e5dc]">
-              {totals.currentMonthName} ({totals.daysRemainingInMonth} {totals.daysRemainingInMonth === 1 ? 'dia restante' : 'dias restantes'})
-            </span>
+
+            {/* Toggle de Horizonte de Tempo */}
+            {hasClosingCards && (
+              <div className="inline-flex rounded-xl bg-[#e9f0eb] p-1 border border-[#d8e5dc]">
+                <button
+                  type="button"
+                  onClick={() => setBudgetHorizon('closing')}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeHorizon === 'closing'
+                      ? 'bg-[#173d2a] text-white shadow-xs'
+                      : 'text-[#5a8067] hover:text-[#173d2a]'
+                  }`}
+                >
+                  ✂ Até Fechamento da Fatura
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBudgetHorizon('month')}
+                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition cursor-pointer ${
+                    activeHorizon === 'month'
+                      ? 'bg-[#173d2a] text-white shadow-xs'
+                      : 'text-[#5a8067] hover:text-[#173d2a]'
+                  }`}
+                >
+                  📅 Até Fim do Mês
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-3">
-            {/* Card 1: Gasto Diário Disponível até Zerar */}
+            {/* Card 1: Gasto Diário Disponível (Focado no Fechamento ou Mês) */}
             <div className="rounded-3xl border border-[#b7d7c5] bg-gradient-to-br from-white to-[#edf5ef] p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#5a8067]">
-                  🎯 Teto Diário Disponível
+                  🎯 Teto Diário Seguro
                 </span>
-                <span className="text-xs font-semibold text-[#245439] bg-[#d8e8dc] px-2 py-0.5 rounded-md">
-                  Até o fim do mês
+                <span className="text-xs font-semibold text-[#245439] bg-[#d8e8dc] px-2.5 py-0.5 rounded-md">
+                  {activeHorizon === 'closing' ? 'Até fechar fatura' : 'Até fim do mês'}
                 </span>
               </div>
 
               <div className="mt-3">
                 <p className="text-3xl font-extrabold text-[#173d2a] tracking-tight">
-                  {formattedDailyAvailable}
+                  {displayedDailyAmount}
                   <span className="text-sm font-semibold text-[#718078]"> / dia</span>
                 </p>
                 <p className="mt-2 text-xs leading-5 text-[#64736a]">
                   {isNetPositive ? (
-                    <>
-                      Restam <strong>{totals.daysRemainingInMonth} dias</strong> em {totals.currentMonthName}. Gastando até este valor diário, você chega ao final do mês sem dívidas de cartão.
-                    </>
+                    activeHorizon === 'closing' && totals.nextClosingCard ? (
+                      <>
+                        Faltam <strong>{displayedDaysCount} dias</strong> até o fechamento do <strong>{totals.nextClosingCard.cardName}</strong> (dia {totals.nextClosingCard.closingDay}). Gastando até esse valor por dia, você não estoura a fatura deste ciclo.
+                      </>
+                    ) : (
+                      <>
+                        Restam <strong>{displayedDaysCount} dias</strong> em {totals.currentMonthName}. Gastando até esse valor por dia, você fecha o mês com saldo positivo e faturas 100% cobertas.
+                      </>
+                    )
                   ) : (
                     <>
-                      Saldo livre zerado ou negativo. Evite novos gastos até equilibrar o dinheiro em conta com as faturas.
+                      Saldo livre zerado ou negativo. Evite novas compras no cartão até cobrir as faturas existentes.
                     </>
                   )}
                 </p>
+
                 {isNetPositive && (
                   <div className="mt-3 pt-3 border-t border-[#d8e5dc] flex items-center justify-between text-xs text-[#5a8067]">
-                    <span>Projeção semanal:</span>
-                    <strong className="text-[#173d2a]">{formattedWeeklyAvailable}/semana</strong>
+                    <span>Janela calculada:</span>
+                    <strong className="text-[#173d2a]">
+                      {displayedDaysCount} {displayedDaysCount === 1 ? 'dia' : 'dias'} restantes
+                    </strong>
                   </div>
                 )}
               </div>
@@ -307,7 +357,7 @@ export function OverviewPage({
                   {totals.totalCreditCardsToPay > 0 ? (
                     totals.coverageRatio >= 1 ? (
                       <>
-                        Seu dinheiro em conta cobre <strong>{totals.coverageRatio.toFixed(1)} vezes</strong> o valor total das faturas de cartão.
+                        Seu dinheiro em conta cobre <strong>{totals.coverageRatio.toFixed(1)} vezes</strong> o total das faturas a pagar.
                       </>
                     ) : (
                       <>
@@ -319,63 +369,63 @@ export function OverviewPage({
                   )}
                 </p>
                 <div className="mt-3 pt-3 border-t border-[#edf2ee] flex items-center justify-between text-xs text-[#718078]">
-                  <span>Faturas comprometem:</span>
+                  <span>Comprometimento:</span>
                   <strong className="text-[#173d2a]">{totals.commitmentRatio.toFixed(0)}% do saldo</strong>
                 </div>
               </div>
             </div>
 
-            {/* Card 3: Distribuição & Próximo Vencimento */}
+            {/* Card 3: Radar de Fechamento & Vencimento */}
             <div className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-[#718078]">
-                  📅 Atenção & Vencimentos
+                  📅 Radar do Cartão
                 </span>
                 <span className="text-xs font-semibold text-[#718078] bg-[#f7f8f5] px-2 py-0.5 rounded-md">
-                  Radar
+                  Próximas Datas
                 </span>
               </div>
 
-              <div className="mt-3 space-y-3">
-                {totals.nextDueCard ? (
-                  <div className="rounded-2xl bg-[#fafcfb] p-3 border border-[#edf2ee]">
-                    <p className="text-[11px] font-semibold text-[#8a998f]">Próximo Vencimento</p>
+              <div className="mt-3 space-y-2.5">
+                {/* Fechamento */}
+                {totals.nextClosingCard ? (
+                  <div className="rounded-2xl bg-[#fafcfb] p-2.5 border border-[#edf2ee]">
+                    <div className="flex items-center justify-between text-[11px] text-[#718078]">
+                      <span>✂ Próximo Fechamento</span>
+                      <strong className="text-[#5a8067]">Melhor dia de compra</strong>
+                    </div>
                     <div className="mt-1 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <BankLogo slug={totals.nextDueCard.bankSlug} size={20} radius="4px" />
-                        <span className="text-xs font-bold text-[#173d2a] truncate max-w-[120px]">
-                          {totals.nextDueCard.cardName}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50">
-                        Dia {totals.nextDueCard.dueDay}
+                      <span className="text-xs font-bold text-[#173d2a] truncate max-w-[130px]">
+                        {totals.nextClosingCard.cardName}
+                      </span>
+                      <span className="text-xs font-bold text-[#173d2a] bg-[#e9f4ec] px-2 py-0.5 rounded-md border border-[#d8e5dc]">
+                        Dia {totals.nextClosingCard.closingDay} ({totals.daysUntilNextClosing}d)
                       </span>
                     </div>
                   </div>
-                ) : (
-                  <div className="rounded-2xl bg-[#fafcfb] p-3 border border-[#edf2ee] text-xs text-[#8a998f]">
-                    Nenhum vencimento de fatura registrado.
-                  </div>
-                )}
+                ) : null}
 
-                {totals.largestAccount ? (
-                  <div className="rounded-2xl bg-[#fafcfb] p-3 border border-[#edf2ee]">
-                    <p className="text-[11px] font-semibold text-[#8a998f]">Maior Saldo em Conta</p>
+                {/* Vencimento */}
+                {totals.nextDueCard ? (
+                  <div className="rounded-2xl bg-[#fafcfb] p-2.5 border border-[#edf2ee]">
+                    <div className="flex items-center justify-between text-[11px] text-[#718078]">
+                      <span>🗓 Próximo Vencimento</span>
+                      <strong className="text-amber-700">Pagamento boleto</strong>
+                    </div>
                     <div className="mt-1 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <BankLogo slug={totals.largestAccount.bankSlug} size={20} radius="4px" />
-                        <span className="text-xs font-bold text-[#173d2a] truncate max-w-[120px]">
-                          {totals.largestAccount.accountName}
-                        </span>
-                      </div>
-                      <span className="text-xs font-bold text-[#173d2a]">
-                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totals.largestAccount.balance)}
+                      <span className="text-xs font-bold text-[#173d2a] truncate max-w-[130px]">
+                        {totals.nextDueCard.cardName}
+                      </span>
+                      <span className="text-xs font-bold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50">
+                        Dia {totals.nextDueCard.dueDay} ({totals.daysUntilNextDue}d)
                       </span>
                     </div>
                   </div>
-                ) : (
+                ) : null}
+
+                {!totals.nextClosingCard && !totals.nextDueCard && (
                   <div className="rounded-2xl bg-[#fafcfb] p-3 border border-[#edf2ee] text-xs text-[#8a998f]">
-                    Cadastre suas contas para ver a distribuição.
+                    Cadastre datas de fechamento e vencimento nos seus cartões para ativar o radar.
                   </div>
                 )}
               </div>
@@ -537,7 +587,7 @@ export function OverviewPage({
             )}
           </section>
 
-          {/* Lado Direito: Cartões de Crédito */}
+          {/* Lado Direito: Cartões de Crédito com Fechamento e Vencimento */}
           <section className="rounded-3xl border border-[#dfe8e1] bg-white p-6 sm:p-7 shadow-xs">
             <div className="flex items-center justify-between border-b border-[#edf2ee] pb-4">
               <div className="flex items-center gap-3">
@@ -546,7 +596,7 @@ export function OverviewPage({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-[#173d2a]">Cartões a Pagar</h2>
-                  <p className="text-xs text-[#718078]">Faturas abertas e obrigações de cartão</p>
+                  <p className="text-xs text-[#718078]">Faturas abertas, fechamento e vencimento</p>
                 </div>
               </div>
 
@@ -563,7 +613,7 @@ export function OverviewPage({
                   <p className="text-3xl mb-2">💳</p>
                   <p className="text-sm font-semibold text-[#173d2a]">Nenhum cartão cadastrado</p>
                   <p className="mt-1 text-xs text-[#718078] max-w-xs mx-auto">
-                    Cadastre seus cartões de crédito e faturas atuais para deduzir das suas disponibilidades.
+                    Cadastre seus cartões de crédito, datas de fechamento e vencimento para controlar seu ciclo de compras.
                   </p>
                   <button
                     onClick={() => {
@@ -583,85 +633,93 @@ export function OverviewPage({
                     currency: 'BRL',
                   }).format(card.invoiceAmount)
 
+                  const timeline = getCardTimelineStatus(card, totals.currentDay, totals.totalDaysInMonth)
+
                   return (
                     <div
                       key={card.id}
-                      className="group flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-[#e3eae4] bg-[#fafcfb] hover:border-rose-200 hover:bg-white transition shadow-2xs"
+                      className="group flex flex-col gap-3 p-4 rounded-2xl border border-[#e3eae4] bg-[#fafcfb] hover:border-rose-200 hover:bg-white transition shadow-2xs"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <BankLogo
-                          slug={card.bankSlug}
-                          size={44}
-                          radius="0.75rem"
-                          fallbackName={card.bankName}
-                        />
-                        <div className="truncate">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-bold text-[#173d2a] truncate">
-                              {card.cardName}
-                            </h3>
-                            {card.dueDay && (
-                              <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md shrink-0 border border-amber-200/50">
-                                Vence dia {card.dueDay}
-                              </span>
-                            )}
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3.5 min-w-0">
+                          <BankLogo
+                            slug={card.bankSlug}
+                            size={44}
+                            radius="0.75rem"
+                            fallbackName={card.bankName}
+                          />
+                          <div className="truncate">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="text-sm font-bold text-[#173d2a] truncate">
+                                {card.cardName}
+                              </h3>
+                              {timeline.closingDay && (
+                                <span className="text-[10px] font-semibold text-[#245439] bg-[#e9f4ec] px-2 py-0.5 rounded-md border border-[#d8e5dc]">
+                                  ✂ Fecha dia {timeline.closingDay}
+                                </span>
+                              )}
+                              {timeline.dueDay && (
+                                <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/50">
+                                  🗓 Vence dia {timeline.dueDay}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-[#718078] truncate">{card.bankName}</p>
                           </div>
-                          <p className="text-xs text-[#718078] truncate">{card.bankName}</p>
                         </div>
-                      </div>
 
-                      {/* Fatura e Ações */}
-                      <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#eef3ef]">
-                        {isEditingThis ? (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-bold text-rose-600">R$</span>
-                            <input
-                              type="text"
-                              autoFocus
-                              value={inlineInvoiceValue}
-                              onChange={(e) => setInlineInvoiceValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') handleSaveInlineInvoice(card.id)
-                                if (e.key === 'Escape') setEditingInvoiceId(null)
+                        {/* Fatura e Ações */}
+                        <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[#eef3ef]">
+                          {isEditingThis ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-rose-600">R$</span>
+                              <input
+                                type="text"
+                                autoFocus
+                                value={inlineInvoiceValue}
+                                onChange={(e) => setInlineInvoiceValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') handleSaveInlineInvoice(card.id)
+                                  if (e.key === 'Escape') setEditingInvoiceId(null)
+                                }}
+                                className="w-24 rounded-lg border border-rose-400 bg-white px-2 py-1 text-sm font-bold text-rose-700 outline-none"
+                              />
+                              <button
+                                onClick={() => handleSaveInlineInvoice(card.id)}
+                                className="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
+                              >
+                                ✓
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="text-left sm:text-right">
+                              <p className="text-base font-bold text-rose-600">
+                                {formattedInvoice}
+                              </p>
+                              <button
+                                onClick={() => handleStartEditInvoice(card)}
+                                className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5 sm:ml-auto"
+                              >
+                                ✏ Atualizar fatura
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Botões de Ação */}
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => {
+                                setEditingCard(card)
+                                setIsCardModalOpen(true)
                               }}
-                              className="w-24 rounded-lg border border-rose-400 bg-white px-2 py-1 text-sm font-bold text-rose-700 outline-none"
-                            />
-                            <button
-                              onClick={() => handleSaveInlineInvoice(card.id)}
-                              className="rounded-lg bg-rose-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-rose-700 cursor-pointer"
+                              className="grid size-8 place-items-center rounded-xl text-[#718078] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                              title="Editar dados do cartão"
                             >
-                              ✓
+                              ⚙
                             </button>
-                          </div>
-                        ) : (
-                          <div className="text-left sm:text-right">
-                            <p className="text-base font-bold text-rose-600">
-                              {formattedInvoice}
-                            </p>
                             <button
-                              onClick={() => handleStartEditInvoice(card)}
-                              className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5 sm:ml-auto"
-                            >
-                              ✏ Atualizar fatura
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Botões de Ação */}
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => {
-                              setEditingCard(card)
-                              setIsCardModalOpen(true)
-                            }}
-                            className="grid size-8 place-items-center rounded-xl text-[#718078] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                            title="Editar dados do cartão"
-                          >
-                            ⚙
-                          </button>
-                          <button
-                            onClick={() => {
-                              if (confirm(`Deseja excluir o cartão "${card.cardName}"?`)) {
+                              onClick={() => {
+                                if (confirm(`Deseja excluir o cartão "${card.cardName}"?`)) {
                                 onDeleteCreditCard(card.id)
                               }
                             }}
@@ -673,88 +731,111 @@ export function OverviewPage({
                         </div>
                       </div>
                     </div>
-                  )
-                })
-              )}
-            </div>
 
-            {creditCards.length > 0 && (
-              <button
-                onClick={() => {
-                  setEditingCard(null)
-                  setIsCardModalOpen(true)
-                }}
-                className="mt-4 w-full py-2.5 rounded-2xl border border-dashed border-[#d8e1da] text-xs font-semibold text-[#5a8067] hover:border-[#5d9873] hover:bg-[#edf5ef] transition cursor-pointer text-center"
-              >
-                + Adicionar outro cartão de crédito
-              </button>
+                    {/* Linha Informativa do Ciclo de Fechamento */}
+                    {(timeline.closingDay || timeline.dueDay) && (
+                      <div className="flex items-center justify-between text-[11px] px-3 py-1.5 rounded-xl bg-white border border-[#edf2ee] text-[#64736a]">
+                        <span>
+                          {timeline.isInvoiceClosed ? (
+                            <span className="font-semibold text-amber-800 flex items-center gap-1">
+                              <span>🔒</span> Fatura Fechada • Pague até dia {timeline.dueDay}
+                            </span>
+                          ) : (
+                            <span className="font-semibold text-[#245439] flex items-center gap-1">
+                              <span>🔓</span> Fatura Aberta • Fecha em {timeline.daysToClose}d (dia {timeline.closingDay})
+                            </span>
+                          )}
+                        </span>
+                        {timeline.closingDay && (
+                          <span className="text-[10px] text-[#718078]">
+                            Melhor compra: a partir do dia {timeline.closingDay}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })
             )}
-          </section>
-        </div>
-
-        {/* Atalhos e Dicas Rápidas */}
-        <div className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div
-            onClick={() => onNavigate('fixed-costs')}
-            className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#5a8067]">Custos Fixos</span>
-              <span className="text-sm">→</span>
-            </div>
-            <p className="mt-2 text-xs text-[#718078]">
-              Veja seus custos mensais recorrentes para projetar seu fluxo de caixa.
-            </p>
           </div>
 
-          <div
-            onClick={() => onNavigate('patrimonio')}
-            className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#5a8067]">Patrimônio Líquido</span>
-              <span className="text-sm">→</span>
-            </div>
-            <p className="mt-2 text-xs text-[#718078]">
-              Acompanhe seus bens, investimentos e financiamentos no balanço patrimonial.
-            </p>
-          </div>
-
-          <div
-            onClick={() => onNavigate('dashboard')}
-            className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#5a8067]">Painel Completo</span>
-              <span className="text-sm">→</span>
-            </div>
-            <p className="mt-2 text-xs text-[#718078]">
-              Visualize todos os indicadores consolidados no seu Dashboard.
-            </p>
-          </div>
-        </div>
+          {creditCards.length > 0 && (
+            <button
+              onClick={() => {
+                setEditingCard(null)
+                setIsCardModalOpen(true)
+              }}
+              className="mt-4 w-full py-2.5 rounded-2xl border border-dashed border-[#d8e1da] text-xs font-semibold text-[#5a8067] hover:border-[#5d9873] hover:bg-[#edf5ef] transition cursor-pointer text-center"
+            >
+              + Adicionar outro cartão de crédito
+            </button>
+          )}
+        </section>
       </div>
 
-      {/* Modais */}
-      <BankAccountModal
-        isOpen={isAccountModalOpen}
-        onClose={() => {
-          setIsAccountModalOpen(false)
-          setEditingAccount(null)
-        }}
-        onSave={onSaveBankAccount}
-        accountToEdit={editingAccount}
-      />
+      {/* Atalhos Rápidos */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <div
+          onClick={() => onNavigate('fixed-costs')}
+          className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#5a8067]">Custos Fixos</span>
+            <span className="text-sm">→</span>
+          </div>
+          <p className="mt-2 text-xs text-[#718078]">
+            Veja seus custos mensais recorrentes para projetar seu fluxo de caixa.
+          </p>
+        </div>
 
-      <CreditCardModal
-        isOpen={isCardModalOpen}
-        onClose={() => {
-          setIsCardModalOpen(false)
-          setEditingCard(null)
-        }}
-        onSave={onSaveCreditCard}
-        cardToEdit={editingCard}
-      />
-    </main>
-  )
+        <div
+          onClick={() => onNavigate('patrimonio')}
+          className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#5a8067]">Patrimônio Líquido</span>
+            <span className="text-sm">→</span>
+          </div>
+          <p className="mt-2 text-xs text-[#718078]">
+            Acompanhe seus bens, investimentos e financiamentos no balanço patrimonial.
+          </p>
+        </div>
+
+        <div
+          onClick={() => onNavigate('dashboard')}
+          className="rounded-2xl border border-[#dfe8e1] bg-white p-4 hover:border-[#b7d7c5] transition cursor-pointer"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#5a8067]">Painel Completo</span>
+            <span className="text-sm">→</span>
+          </div>
+          <p className="mt-2 text-xs text-[#718078]">
+            Visualize todos os indicadores consolidados no seu Dashboard.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {/* Modais */}
+    <BankAccountModal
+      isOpen={isAccountModalOpen}
+      onClose={() => {
+        setIsAccountModalOpen(false)
+        setEditingAccount(null)
+      }}
+      onSave={onSaveBankAccount}
+      accountToEdit={editingAccount}
+    />
+
+    <CreditCardModal
+      isOpen={isCardModalOpen}
+      onClose={() => {
+        setIsCardModalOpen(false)
+        setEditingCard(null)
+      }}
+      onSave={onSaveCreditCard}
+      cardToEdit={editingCard}
+    />
+  </main>
+)
 }

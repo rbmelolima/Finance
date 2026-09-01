@@ -44,7 +44,12 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
   const [invoiceAmount, setInvoiceAmount] = useState(() =>
     cardToEdit ? String(cardToEdit.invoiceAmount) : ''
   )
-  const [dueDay, setDueDay] = useState(() => (cardToEdit?.dueDay ? String(cardToEdit.dueDay) : '10'))
+  const [closingDay, setClosingDay] = useState(() =>
+    cardToEdit?.closingDay ? String(cardToEdit.closingDay) : '3'
+  )
+  const [dueDay, setDueDay] = useState(() =>
+    cardToEdit?.dueDay ? String(cardToEdit.dueDay) : '10'
+  )
   const [limit, setLimit] = useState(() => (cardToEdit?.limit ? String(cardToEdit.limit) : ''))
   const [isBankPickerOpen, setIsBankPickerOpen] = useState(false)
   const [error, setError] = useState('')
@@ -55,6 +60,12 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
 
     if (isNaN(cleanInvoice)) {
       setError('Por favor, informe o valor da fatura a pagar.')
+      return
+    }
+
+    const parsedClosingDay = closingDay ? parseInt(closingDay, 10) : undefined
+    if (parsedClosingDay && (parsedClosingDay < 1 || parsedClosingDay > 31)) {
+      setError('O dia de fechamento deve estar entre 1 e 31.')
       return
     }
 
@@ -72,6 +83,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
       bankName: bankName.trim() || 'Cartão',
       cardName: cardName.trim() || `${bankName} Crédito`,
       invoiceAmount: cleanInvoice,
+      closingDay: parsedClosingDay,
       dueDay: parsedDueDay,
       limit: parsedLimit,
     })
@@ -82,7 +94,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
   return (
     <>
       <div
-        className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfe8e1] overflow-hidden"
+        className="w-full max-w-md rounded-3xl bg-white p-6 sm:p-8 shadow-2xl border border-[#dfe8e1] overflow-hidden max-h-[90vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -92,7 +104,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
               {cardToEdit ? 'Editar Cartão de Crédito' : 'Cadastrar Cartão de Crédito'}
             </h3>
             <p className="text-xs text-[#718078] mt-0.5">
-              Informe o emissor e o valor da fatura atual a pagar
+              Fechamento da fatura, vencimento e valor a pagar
             </p>
           </div>
           <button
@@ -104,7 +116,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+        <form onSubmit={handleSubmit} className="mt-5 space-y-4 overflow-y-auto pr-1">
           {/* Emissor / Banco com Logo */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
@@ -146,7 +158,7 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
           {/* Fatura Atual a Pagar */}
           <div>
             <label htmlFor="invoiceAmount" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-              Valor da Fatura Atual a Pagar (R$)
+              Valor da Fatura Atual (R$)
             </label>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-rose-600">
@@ -164,38 +176,66 @@ function CreditCardForm({ cardToEdit, onClose, onSave }: CreditCardFormProps) {
             </div>
           </div>
 
-          {/* Grid: Dia de Vencimento & Limite Opcional */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="dueDay" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-                Dia Vencimento
-              </label>
-              <input
-                id="dueDay"
-                type="number"
-                min="1"
-                max="31"
-                value={dueDay}
-                onChange={(e) => setDueDay(e.target.value)}
-                placeholder="Ex: 10"
-                className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-2.5 text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
-              />
-            </div>
+          {/* Ciclo do Cartão: Fechamento vs Vencimento */}
+          <div className="rounded-2xl bg-[#fafcfb] border border-[#e3eae4] p-3.5 space-y-3">
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#5a8067]">
+              Ciclo da Fatura
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="closingDay" className="block text-xs font-semibold text-[#173d2a] mb-1">
+                  Dia de Fechamento
+                </label>
+                <input
+                  id="closingDay"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={closingDay}
+                  onChange={(e) => setClosingDay(e.target.value)}
+                  placeholder="Ex: 3"
+                  className="w-full rounded-xl border border-[#d8e1da] bg-white px-3 py-2 text-sm font-bold text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-2 focus:ring-[#b7d7c5]/30 transition"
+                />
+                <span className="text-[10px] text-[#718078] mt-0.5 block">
+                  Melhor dia de compra
+                </span>
+              </div>
 
-            <div>
-              <label htmlFor="limit" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-                Limite Total (Opcional)
-              </label>
-              <input
-                id="limit"
-                type="text"
-                inputMode="decimal"
-                value={limit}
-                onChange={(e) => setLimit(e.target.value)}
-                placeholder="Ex: 15.000"
-                className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-2.5 text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
-              />
+              <div>
+                <label htmlFor="dueDay" className="block text-xs font-semibold text-[#173d2a] mb-1">
+                  Dia de Vencimento
+                </label>
+                <input
+                  id="dueDay"
+                  type="number"
+                  min="1"
+                  max="31"
+                  value={dueDay}
+                  onChange={(e) => setDueDay(e.target.value)}
+                  placeholder="Ex: 10"
+                  className="w-full rounded-xl border border-[#d8e1da] bg-white px-3 py-2 text-sm font-bold text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-2 focus:ring-[#b7d7c5]/30 transition"
+                />
+                <span className="text-[10px] text-[#718078] mt-0.5 block">
+                  Pagamento do boleto
+                </span>
+              </div>
             </div>
+          </div>
+
+          {/* Limite Opcional */}
+          <div>
+            <label htmlFor="limit" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
+              Limite Total (Opcional)
+            </label>
+            <input
+              id="limit"
+              type="text"
+              inputMode="decimal"
+              value={limit}
+              onChange={(e) => setLimit(e.target.value)}
+              placeholder="Ex: 15.000"
+              className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-2.5 text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
+            />
           </div>
 
           {error && (

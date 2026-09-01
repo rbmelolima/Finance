@@ -5,10 +5,11 @@ import { DashboardPage } from './components/dashboard/DashboardPage'
 import { FixedCostsPage } from './components/fixed-costs/FixedCostsPage'
 import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
 import { Logo } from './components/Logo'
-import { Navbar } from './components/Navbar'
 import { OverviewPage } from './components/overview/OverviewPage'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
+import { Sidebar } from './components/Sidebar'
 import {
+  calculateCarteiraTotals,
   deleteBankAccountItem,
   deleteCreditCardItem,
   deleteFixedCostItem,
@@ -37,6 +38,8 @@ function App() {
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(getFixedCosts)
   const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
+
+  const carteiraTotals = calculateCarteiraTotals(bankAccounts, creditCards)
 
   function handleLogin(newName: string, newEmail: string) {
     const trimmedName = newName.trim()
@@ -143,67 +146,71 @@ function App() {
     )
   }
 
-  // Telas autenticadas
+  // Telas autenticadas com Menu Lateral (Sidebar)
   return (
     <div className="min-h-screen bg-[#f7f8f5]">
-      <Navbar
+      <Sidebar
         currentScreen={screen}
         onNavigate={setScreen}
         userName={profile?.name}
+        userEmail={profile?.email}
         onExit={handleExit}
+        netBalance={carteiraTotals.netRealBalance}
       />
 
-      {(screen === 'carteira' || screen === 'overview') && (
-        <OverviewPage
-          bankAccounts={bankAccounts}
-          creditCards={creditCards}
-          onSaveBankAccount={handleSaveBankAccount}
-          onDeleteBankAccount={handleDeleteBankAccount}
-          onUpdateAccountBalance={handleUpdateAccountBalance}
-          onSaveCreditCard={handleSaveCreditCard}
-          onDeleteCreditCard={handleDeleteCreditCard}
-          onUpdateCardInvoice={handleUpdateCardInvoice}
-          onNavigate={setScreen}
+      <div className="min-h-screen flex flex-col flex-1 lg:pl-72 transition-all">
+        {(screen === 'carteira' || screen === 'overview') && (
+          <OverviewPage
+            bankAccounts={bankAccounts}
+            creditCards={creditCards}
+            onSaveBankAccount={handleSaveBankAccount}
+            onDeleteBankAccount={handleDeleteBankAccount}
+            onUpdateAccountBalance={handleUpdateAccountBalance}
+            onSaveCreditCard={handleSaveCreditCard}
+            onDeleteCreditCard={handleDeleteCreditCard}
+            onUpdateCardInvoice={handleUpdateCardInvoice}
+            onNavigate={setScreen}
+          />
+        )}
+
+        {screen === 'dashboard' && profile && (
+          <DashboardPage
+            name={profile.name}
+            fixedCosts={fixedCosts}
+            patrimonio={patrimonio}
+            bankAccounts={bankAccounts}
+            creditCards={creditCards}
+            onNavigate={setScreen}
+            onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
+          />
+        )}
+
+        {screen === 'fixed-costs' && (
+          <FixedCostsPage
+            fixedCosts={fixedCosts}
+            onSaveCost={handleSaveCost}
+            onDeleteCost={handleDeleteCost}
+          />
+        )}
+
+        {screen === 'patrimonio' && (
+          <PatrimonioPage
+            patrimonio={patrimonio}
+            onSavePatrimonio={handleSavePatrimonio}
+          />
+        )}
+
+        {/* Modal Rápido de Criação acionado pelo Dashboard */}
+        <FixedCostModal
+          isOpen={isQuickCreateOpen}
+          onClose={() => setIsQuickCreateOpen(false)}
+          onSave={handleSaveCost}
         />
-      )}
-
-
-      {screen === 'dashboard' && profile && (
-        <DashboardPage
-          name={profile.name}
-          fixedCosts={fixedCosts}
-          patrimonio={patrimonio}
-          bankAccounts={bankAccounts}
-          creditCards={creditCards}
-          onNavigate={setScreen}
-          onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
-        />
-      )}
-
-      {screen === 'fixed-costs' && (
-        <FixedCostsPage
-          fixedCosts={fixedCosts}
-          onSaveCost={handleSaveCost}
-          onDeleteCost={handleDeleteCost}
-        />
-      )}
-
-      {screen === 'patrimonio' && (
-        <PatrimonioPage
-          patrimonio={patrimonio}
-          onSavePatrimonio={handleSavePatrimonio}
-        />
-      )}
-
-      {/* Modal Rápido de Criação acionado pelo Dashboard */}
-      <FixedCostModal
-        isOpen={isQuickCreateOpen}
-        onClose={() => setIsQuickCreateOpen(false)}
-        onSave={handleSaveCost}
-      />
+      </div>
     </div>
   )
 }
+
 
 
 function Landing({

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { FamilyMember } from '../../types/finance'
 import { formatMoneyInput, parseMoney } from '../../utils/currency'
+import { calculateAge, formatAgeDisplay, MONTHS_PTBR } from '../../utils/date'
 
 interface FamilyMemberModalProps {
   isOpen: boolean
@@ -46,14 +47,29 @@ interface FamilyMemberFormProps {
 }
 
 function FamilyMemberForm({ memberToEdit, onClose, onSave }: FamilyMemberFormProps) {
+  const currentYear = new Date().getFullYear()
+
   const [name, setName] = useState(memberToEdit?.name ?? '')
   const [relationship, setRelationship] = useState(memberToEdit?.relationship ?? RELATIONSHIP_OPTIONS[0])
-  const [age, setAge] = useState(memberToEdit?.age ? String(memberToEdit.age) : '')
+  const [birthMonth, setBirthMonth] = useState<string>(() =>
+    memberToEdit?.birthMonth ? String(memberToEdit.birthMonth) : ''
+  )
+  const [birthYear, setBirthYear] = useState<string>(() =>
+    memberToEdit?.birthYear
+      ? String(memberToEdit.birthYear)
+      : memberToEdit?.age
+      ? String(currentYear - memberToEdit.age)
+      : ''
+  )
   const [isWorking, setIsWorking] = useState(memberToEdit?.isWorking ?? false)
   const [income, setIncome] = useState(() =>
     memberToEdit?.income ? formatMoneyInput(memberToEdit.income) : ''
   )
   const [error, setError] = useState('')
+
+  const parsedBirthYear = birthYear.trim() ? parseInt(birthYear.trim(), 10) : undefined
+  const parsedBirthMonth = birthMonth ? parseInt(birthMonth, 10) : undefined
+  const dynamicAge = calculateAge(parsedBirthYear, parsedBirthMonth)
 
   function handleIncomeBlur() {
     if (income.trim()) {
@@ -71,10 +87,11 @@ function FamilyMemberForm({ memberToEdit, onClose, onSave }: FamilyMemberFormPro
       return
     }
 
-    const parsedAge = age.trim() ? parseInt(age.trim(), 10) : undefined
-    if (parsedAge !== undefined && (isNaN(parsedAge) || parsedAge < 0 || parsedAge > 130)) {
-      setError('Por favor, informe uma idade válida.')
-      return
+    if (parsedBirthYear !== undefined) {
+      if (isNaN(parsedBirthYear) || parsedBirthYear < 1900 || parsedBirthYear > currentYear) {
+        setError(`O ano de nascimento deve ser entre 1900 e ${currentYear}.`)
+        return
+      }
     }
 
     let parsedIncome: number | undefined
@@ -92,7 +109,9 @@ function FamilyMemberForm({ memberToEdit, onClose, onSave }: FamilyMemberFormPro
       id: memberToEdit?.id ?? `fam_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       name: trimmedName,
       relationship,
-      age: parsedAge,
+      birthMonth: parsedBirthMonth,
+      birthYear: parsedBirthYear,
+      age: dynamicAge ?? memberToEdit?.age,
       isWorking,
       income: isWorking ? parsedIncome : 0,
       createdAt: memberToEdit?.createdAt ?? new Date().toISOString(),
@@ -142,41 +161,77 @@ function FamilyMemberForm({ memberToEdit, onClose, onSave }: FamilyMemberFormPro
           />
         </div>
 
-        {/* Parentesco e Idade */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="fam-rel" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-              Parentesco
+        {/* Parentesco */}
+        <div>
+          <label htmlFor="fam-rel" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
+            Parentesco
+          </label>
+          <select
+            id="fam-rel"
+            value={relationship}
+            onChange={(e) => setRelationship(e.target.value)}
+            className="w-full rounded-2xl border border-[#d8e1da] bg-white px-3 py-3 text-xs sm:text-sm text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition cursor-pointer"
+          >
+            {RELATIONSHIP_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Mês e Ano de Nascimento (Atualização Anual Automática) */}
+        <div className="rounded-2xl border border-[#dfe8e1] bg-[#fafcfb] p-3.5 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold uppercase tracking-wider text-[#436350]">
+              Data de Nascimento
             </label>
-            <select
-              id="fam-rel"
-              value={relationship}
-              onChange={(e) => setRelationship(e.target.value)}
-              className="w-full rounded-2xl border border-[#d8e1da] bg-white px-3 py-3 text-xs sm:text-sm text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition cursor-pointer"
-            >
-              {RELATIONSHIP_OPTIONS.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
+            {dynamicAge !== null && (
+              <span className="text-[11px] font-bold text-[#173d2a] bg-[#e9f4ec] px-2 py-0.5 rounded-full">
+                Idade: {formatAgeDisplay(parsedBirthYear, parsedBirthMonth)}
+              </span>
+            )}
           </div>
 
-          <div>
-            <label htmlFor="fam-age" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-              Idade (Anos)
-            </label>
-            <input
-              id="fam-age"
-              type="number"
-              min="0"
-              max="130"
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-              placeholder="Ex: 28"
-              className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-3 text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="fam-birth-month" className="block text-[11px] font-medium text-[#718078] mb-1">
+                Mês de Nascimento
+              </label>
+              <select
+                id="fam-birth-month"
+                value={birthMonth}
+                onChange={(e) => setBirthMonth(e.target.value)}
+                className="w-full rounded-xl border border-[#d8e1da] bg-white px-3 py-2.5 text-xs sm:text-sm text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition cursor-pointer"
+              >
+                <option value="">Selecione o mês</option>
+                {MONTHS_PTBR.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="fam-birth-year" className="block text-[11px] font-medium text-[#718078] mb-1">
+                Ano de Nascimento
+              </label>
+              <input
+                id="fam-birth-year"
+                type="number"
+                min="1900"
+                max={currentYear}
+                value={birthYear}
+                onChange={(e) => setBirthYear(e.target.value)}
+                placeholder={`Ex: 1995, 2012...`}
+                className="w-full rounded-xl border border-[#d8e1da] bg-white px-3 py-2.5 text-xs sm:text-sm text-[#173d2a] placeholder:text-[#a1afa6] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
+              />
+            </div>
           </div>
+          <p className="text-[10px] text-[#718078]">
+            Com o mês e ano, a idade do seu familiar será atualizada automaticamente a cada aniversário.
+          </p>
         </div>
 
         {/* Trabalha Atualmente? */}

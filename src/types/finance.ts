@@ -98,11 +98,27 @@ export interface CreditCard {
 export interface FamilyMember {
   id: string
   name: string
-  age?: number
+  birthMonth?: number // 1 a 12
+  birthYear?: number // Ex: 1995
+  age?: number // Mantido para compatibilidade retroativa
   relationship?: string
   isWorking: boolean
   income?: number
   createdAt?: string
+}
+
+export type CLTPaymentModel =
+  | 'fifth_business_day' // Salário integral até o 5º dia útil
+  | 'advance_and_balance' // Adiantamento (Vale) + Saldo restante
+  | 'last_business_day' // Salário integral no último dia útil
+
+export type CLTBalanceDayType = 'fifth_business_day' | 'last_business_day'
+
+export interface CLTConfig {
+  paymentModel: CLTPaymentModel
+  advanceDay?: number // ex: 15 ou 20
+  advancePercent?: number // ex: 40%
+  balanceDayType?: CLTBalanceDayType // 'fifth_business_day' ou 'last_business_day'
 }
 
 export interface Profile {
@@ -110,7 +126,8 @@ export interface Profile {
   email: string
   personalIncome?: number
   isCLT?: boolean
-  paymentDay?: number
+  cltConfig?: CLTConfig
+  paymentDay?: number // para regime PJ / Outro
   familyMembers?: FamilyMember[]
   updatedAt?: string
 }

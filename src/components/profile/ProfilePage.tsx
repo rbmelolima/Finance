@@ -6,8 +6,16 @@ import {
   importBackupData,
   resetFinancialData,
 } from '../../services/storage'
-import type { AppBackupData, FamilyMember, Profile } from '../../types/finance'
+import type {
+  AppBackupData,
+  CLTBalanceDayType,
+  CLTConfig,
+  CLTPaymentModel,
+  FamilyMember,
+  Profile,
+} from '../../types/finance'
 import { formatCurrency, formatMoneyInput, parseMoney } from '../../utils/currency'
+import { formatAgeDisplay } from '../../utils/date'
 import { FamilyMemberModal } from './FamilyMemberModal'
 
 interface ProfilePageProps {
@@ -32,8 +40,20 @@ export function ProfilePage({
     profile.personalIncome ? formatMoneyInput(profile.personalIncome) : ''
   )
   const [isCLT, setIsCLT] = useState(profile.isCLT ?? true)
-  const [paymentDay, setPaymentDay] = useState(() =>
-    profile.paymentDay ? String(profile.paymentDay) : '5'
+  const [cltPaymentModel, setCltPaymentModel] = useState<CLTPaymentModel>(
+    () => profile.cltConfig?.paymentModel ?? 'fifth_business_day'
+  )
+  const [advanceDay, setAdvanceDay] = useState<number>(
+    () => profile.cltConfig?.advanceDay ?? 20
+  )
+  const [advancePercent, setAdvancePercent] = useState<number>(
+    () => profile.cltConfig?.advancePercent ?? 40
+  )
+  const [balanceDayType, setBalanceDayType] = useState<CLTBalanceDayType>(
+    () => profile.cltConfig?.balanceDayType ?? 'fifth_business_day'
+  )
+  const [pjPaymentDay, setPjPaymentDay] = useState(() =>
+    profile.paymentDay ? String(profile.paymentDay) : '10'
   )
 
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(() => profile.familyMembers || [])
@@ -77,10 +97,25 @@ export function ProfilePage({
       return
     }
 
-    const parsedPaymentDay = isCLT && paymentDay.trim() ? parseInt(paymentDay.trim(), 10) : undefined
-    if (parsedPaymentDay !== undefined && (isNaN(parsedPaymentDay) || parsedPaymentDay < 1 || parsedPaymentDay > 31)) {
-      setErrorMessage('O dia de pagamento deve ser entre 1 e 31.')
-      return
+    let cltConfig: CLTConfig | undefined
+    let parsedPjPaymentDay: number | undefined
+
+    if (isCLT) {
+      cltConfig = {
+        paymentModel: cltPaymentModel,
+        advanceDay: cltPaymentModel === 'advance_and_balance' ? advanceDay : undefined,
+        advancePercent: cltPaymentModel === 'advance_and_balance' ? advancePercent : undefined,
+        balanceDayType: cltPaymentModel === 'advance_and_balance' ? balanceDayType : undefined,
+      }
+    } else {
+      if (pjPaymentDay.trim()) {
+        const d = parseInt(pjPaymentDay.trim(), 10)
+        if (isNaN(d) || d < 1 || d > 31) {
+          setErrorMessage('O dia de recebimento deve ser entre 1 e 31.')
+          return
+        }
+        parsedPjPaymentDay = d
+      }
     }
 
     const updatedProfile: Profile = {
@@ -89,7 +124,8 @@ export function ProfilePage({
       email: trimmedEmail,
       personalIncome: parsedPersonalIncome > 0 ? parsedPersonalIncome : undefined,
       isCLT,
-      paymentDay: isCLT ? parsedPaymentDay : undefined,
+      cltConfig,
+      paymentDay: parsedPjPaymentDay,
       familyMembers,
       updatedAt: new Date().toISOString(),
     }
@@ -110,13 +146,23 @@ export function ProfilePage({
     setFamilyMembers(updated)
 
     // Salva automaticamente o perfil com os familiares atualizados
+    const cltConfig: CLTConfig | undefined = isCLT
+      ? {
+          paymentModel: cltPaymentModel,
+          advanceDay: cltPaymentModel === 'advance_and_balance' ? advanceDay : undefined,
+          advancePercent: cltPaymentModel === 'advance_and_balance' ? advancePercent : undefined,
+          balanceDayType: cltPaymentModel === 'advance_and_balance' ? balanceDayType : undefined,
+        }
+      : undefined
+
     const updatedProfile: Profile = {
       ...profile,
       name: name.trim() || profile.name,
       email: email.trim() || profile.email,
       personalIncome: parsedPersonalIncome > 0 ? parsedPersonalIncome : undefined,
       isCLT,
-      paymentDay: isCLT ? (paymentDay ? parseInt(paymentDay, 10) : undefined) : undefined,
+      cltConfig,
+      paymentDay: !isCLT && pjPaymentDay ? parseInt(pjPaymentDay, 10) : undefined,
       familyMembers: updated,
       updatedAt: new Date().toISOString(),
     }
@@ -299,11 +345,11 @@ export function ProfilePage({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2 border-t border-[#edf2ee]">
-              {/* Renda Pessoal */}
-              <div>
+            {/* Renda Pessoal */}
+            <div className="pt-2 border-t border-[#edf2ee]">
+              <div className="max-w-md">
                 <label htmlFor="user-income" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-                  Renda Pessoal Mensal (R$)
+                  Renda Pessoal Mensal Líquida (R$)
                 </label>
                 <div className="relative">
                   <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#8a998f]">
@@ -321,31 +367,38 @@ export function ProfilePage({
                   />
                 </div>
                 <span className="text-[11px] text-[#718078] mt-1 block">
-                  Seu salário líquido ou pró-labore
+                  Seu salário líquido, pró-labore ou faturamento mensal individual
                 </span>
               </div>
+            </div>
 
-              {/* É CLT? */}
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-                  Regime de Trabalho
-                </label>
-                <div className="grid grid-cols-2 gap-2">
+            {/* Bloco Regime de Trabalho & Modelos de Pagamento */}
+            <div className="pt-4 border-t border-[#edf2ee] space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#718078]">
+                    Regime de Contratação & Recebimento
+                  </label>
+                  <p className="text-xs text-[#718078]">
+                    Selecione como e em quais datas você recebe sua remuneração
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 w-full sm:w-64">
                   <button
                     type="button"
                     onClick={() => setIsCLT(true)}
-                    className={`py-3 rounded-2xl text-xs font-bold transition cursor-pointer border ${
+                    className={`py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer border ${
                       isCLT
                         ? 'border-[#173d2a] bg-[#173d2a] text-white shadow-xs'
                         : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
                     }`}
                   >
-                    CLT
+                    CLT (Carteira)
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsCLT(false)}
-                    className={`py-3 rounded-2xl text-xs font-bold transition cursor-pointer border ${
+                    className={`py-2.5 rounded-2xl text-xs font-bold transition cursor-pointer border ${
                       !isCLT
                         ? 'border-[#173d2a] bg-[#173d2a] text-white shadow-xs'
                         : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
@@ -354,35 +407,236 @@ export function ProfilePage({
                     PJ / Outro
                   </button>
                 </div>
-                <span className="text-[11px] text-[#718078] mt-1 block">
-                  Determina ciclo de pagamento
-                </span>
               </div>
 
-              {/* Dia de Pagamento */}
-              <div>
-                <label htmlFor="user-payday" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
-                  Dia do Pagamento {isCLT && '(CLT)'}
-                </label>
-                <input
-                  id="user-payday"
-                  type="number"
-                  min="1"
-                  max="31"
-                  disabled={!isCLT}
-                  value={isCLT ? paymentDay : ''}
-                  onChange={(e) => setPaymentDay(e.target.value)}
-                  placeholder={isCLT ? 'Ex: 5' : 'Não se aplica'}
-                  className={`w-full rounded-2xl border px-4 py-3 text-sm font-bold text-[#173d2a] outline-none transition ${
-                    isCLT
-                      ? 'border-[#d8e1da] bg-[#fafcfb] focus:border-[#5d9873] focus:bg-white focus:ring-4 focus:ring-[#b7d7c5]/30'
-                      : 'border-[#edf2ee] bg-gray-100/60 text-gray-400 cursor-not-allowed'
-                  }`}
-                />
-                <span className="text-[11px] text-[#718078] mt-1 block">
-                  {isCLT ? 'Ex: 5º dia útil ou dia 5/20' : 'Habilitado apenas para CLT'}
-                </span>
-              </div>
+              {/* Se for CLT: 3 Modelos de Recebimento */}
+              {isCLT ? (
+                <div className="rounded-3xl border border-[#dfe8e1] bg-[#fafcfb] p-5 sm:p-6 space-y-5 animate-in fade-in duration-200">
+                  <div>
+                    <h3 className="text-sm font-bold text-[#173d2a]">
+                      Modelo de Recebimento CLT
+                    </h3>
+                    <p className="text-xs text-[#718078] mt-0.5">
+                      Escolha o formato adotado pela sua empresa:
+                    </p>
+                  </div>
+
+                  {/* 3 Cards dos Modelos */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Modelo 1: 5º dia útil */}
+                    <button
+                      type="button"
+                      onClick={() => setCltPaymentModel('fifth_business_day')}
+                      className={`text-left p-4 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
+                        cltPaymentModel === 'fifth_business_day'
+                          ? 'border-[#173d2a] bg-white ring-2 ring-[#173d2a]/10 shadow-sm'
+                          : 'border-[#d8e1da] bg-white/70 hover:border-[#b7d7c5] hover:bg-white'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-[#173d2a]">5º Dia Útil</span>
+                          <span className="text-[10px] font-semibold bg-[#e9f4ec] text-[#245439] px-2 py-0.5 rounded-full">
+                            100% Salário
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#64736a] leading-relaxed">
+                          Salário integral pago até o <strong>5º dia útil</strong> do mês subsequente.
+                        </p>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-[#edf2ee] text-[11px] font-medium text-[#5a8067]">
+                        {cltPaymentModel === 'fifth_business_day' ? '✓ Selecionado' : 'Selecionar este modelo'}
+                      </div>
+                    </button>
+
+                    {/* Modelo 2: Vale + Saldo */}
+                    <button
+                      type="button"
+                      onClick={() => setCltPaymentModel('advance_and_balance')}
+                      className={`text-left p-4 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
+                        cltPaymentModel === 'advance_and_balance'
+                          ? 'border-[#173d2a] bg-white ring-2 ring-[#173d2a]/10 shadow-sm'
+                          : 'border-[#d8e1da] bg-white/70 hover:border-[#b7d7c5] hover:bg-white'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-[#173d2a]">Vale + Saldo</span>
+                          <span className="text-[10px] font-semibold bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-full">
+                            2 Recebimentos
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#64736a] leading-relaxed">
+                          Adiantamento quinzenal (dia 15 ou 20) + saldo restante no fim do mês ou até o 5º dia útil.
+                        </p>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-[#edf2ee] text-[11px] font-medium text-[#5a8067]">
+                        {cltPaymentModel === 'advance_and_balance' ? '✓ Selecionado' : 'Selecionar este modelo'}
+                      </div>
+                    </button>
+
+                    {/* Modelo 3: Último dia útil */}
+                    <button
+                      type="button"
+                      onClick={() => setCltPaymentModel('last_business_day')}
+                      className={`text-left p-4 rounded-2xl border transition cursor-pointer flex flex-col justify-between ${
+                        cltPaymentModel === 'last_business_day'
+                          ? 'border-[#173d2a] bg-white ring-2 ring-[#173d2a]/10 shadow-sm'
+                          : 'border-[#d8e1da] bg-white/70 hover:border-[#b7d7c5] hover:bg-white'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-bold text-[#173d2a]">Último Dia Útil</span>
+                          <span className="text-[10px] font-semibold bg-[#e9f4ec] text-[#245439] px-2 py-0.5 rounded-full">
+                            Fim do Mês
+                          </span>
+                        </div>
+                        <p className="text-xs text-[#64736a] leading-relaxed">
+                          Salário integral antecipado no <strong>último dia útil</strong> do mês trabalhado.
+                        </p>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-[#edf2ee] text-[11px] font-medium text-[#5a8067]">
+                        {cltPaymentModel === 'last_business_day' ? '✓ Selecionado' : 'Selecionar este modelo'}
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Detalhes de Configuração do Modelo 2 (Adiantamento + Saldo) */}
+                  {cltPaymentModel === 'advance_and_balance' && (
+                    <div className="rounded-2xl border border-[#b7d7c5] bg-white p-4.5 space-y-4 animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">⚙️</span>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-[#173d2a]">
+                          Configuração do Vale e Saldo
+                        </h4>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {/* Dia do Vale */}
+                        <div>
+                          <label className="block text-xs font-semibold text-[#436350] mb-1.5">
+                            Dia do Adiantamento (Vale)
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setAdvanceDay(15)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                advanceDay === 15
+                                  ? 'border-[#173d2a] bg-[#173d2a] text-white'
+                                  : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
+                              }`}
+                            >
+                              Dia 15
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setAdvanceDay(20)}
+                              className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                advanceDay === 20
+                                  ? 'border-[#173d2a] bg-[#173d2a] text-white'
+                                  : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
+                              }`}
+                            >
+                              Dia 20
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Porcentagem do Vale */}
+                        <div>
+                          <label className="block text-xs font-semibold text-[#436350] mb-1.5">
+                            % do Vale
+                          </label>
+                          <div className="grid grid-cols-3 gap-1.5">
+                            {[30, 40, 50].map((pct) => (
+                              <button
+                                key={pct}
+                                type="button"
+                                onClick={() => setAdvancePercent(pct)}
+                                className={`py-2 rounded-xl text-xs font-bold border transition cursor-pointer ${
+                                  advancePercent === pct
+                                    ? 'border-[#173d2a] bg-[#173d2a] text-white'
+                                    : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
+                                }`}
+                              >
+                                {pct}%
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Dia do Saldo Restante */}
+                        <div>
+                          <label className="block text-xs font-semibold text-[#436350] mb-1.5">
+                            Recebimento do Saldo ({100 - advancePercent}%)
+                          </label>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setBalanceDayType('fifth_business_day')}
+                              className={`py-2 px-1 text-center rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                                balanceDayType === 'fifth_business_day'
+                                  ? 'border-[#173d2a] bg-[#173d2a] text-white'
+                                  : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
+                              }`}
+                            >
+                              5º Dia Útil
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setBalanceDayType('last_business_day')}
+                              className={`py-2 px-1 text-center rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                                balanceDayType === 'last_business_day'
+                                  ? 'border-[#173d2a] bg-[#173d2a] text-white'
+                                  : 'border-[#d8e1da] bg-[#fafcfb] text-[#64736a] hover:border-[#b7d7c5]'
+                              }`}
+                            >
+                              Fim do Mês
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Simulação Visual do Desdobramento */}
+                      {parsedPersonalIncome > 0 && (
+                        <div className="mt-3 rounded-xl bg-[#edf5ef] p-3 text-xs text-[#173d2a] flex flex-wrap items-center justify-between gap-2 border border-[#b7d7c5]">
+                          <span>
+                            💵 <strong>Vale ({advancePercent}%):</strong> {formatCurrency(parsedPersonalIncome * (advancePercent / 100))} no dia {advanceDay}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            🏦 <strong>Saldo ({100 - advancePercent}%):</strong> {formatCurrency(parsedPersonalIncome * ((100 - advancePercent) / 100))} no {balanceDayType === 'fifth_business_day' ? '5º dia útil' : 'último dia útil'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* Se for PJ / Outro */
+                <div className="rounded-3xl border border-[#dfe8e1] bg-[#fafcfb] p-5 sm:p-6 space-y-4 animate-in fade-in duration-200">
+                  <div className="max-w-xs">
+                    <label htmlFor="pj-payday" className="block text-xs font-semibold uppercase tracking-wider text-[#718078] mb-1.5">
+                      Dia Fixo de Recebimento (1 a 31)
+                    </label>
+                    <input
+                      id="pj-payday"
+                      type="number"
+                      min="1"
+                      max="31"
+                      value={pjPaymentDay}
+                      onChange={(e) => setPjPaymentDay(e.target.value)}
+                      placeholder="Ex: 10, 15, 20"
+                      className="w-full rounded-2xl border border-[#d8e1da] bg-white px-4 py-3 text-sm font-bold text-[#173d2a] outline-none focus:border-[#5d9873] focus:ring-4 focus:ring-[#b7d7c5]/30 transition"
+                    />
+                    <span className="text-[11px] text-[#718078] mt-1 block">
+                      Dia em que você costuma receber sua remuneração ou emitir suas notas fiscais.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end pt-2">
@@ -481,62 +735,65 @@ export function ProfilePage({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
-              {familyMembers.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 rounded-2xl border border-[#e3eae4] bg-[#fafcfb] hover:border-[#b7d7c5] hover:bg-white transition"
-                >
-                  <div className="min-w-0 pr-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-[#173d2a] truncate">{member.name}</h4>
-                      {member.relationship && (
-                        <span className="text-[10px] font-semibold text-[#5a8067] bg-[#e9f4ec] px-2 py-0.5 rounded-md">
-                          {member.relationship}
-                        </span>
-                      )}
-                      {member.age !== undefined && member.age !== null && (
-                        <span className="text-[10px] text-[#718078] bg-white border border-[#e3eae4] px-1.5 py-0.5 rounded-md">
-                          {member.age} anos
-                        </span>
-                      )}
+              {familyMembers.map((member) => {
+                const ageLabel = formatAgeDisplay(member.birthYear, member.birthMonth, member.age)
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between p-4 rounded-2xl border border-[#e3eae4] bg-[#fafcfb] hover:border-[#b7d7c5] hover:bg-white transition"
+                  >
+                    <div className="min-w-0 pr-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-[#173d2a] truncate">{member.name}</h4>
+                        {member.relationship && (
+                          <span className="text-[10px] font-semibold text-[#5a8067] bg-[#e9f4ec] px-2 py-0.5 rounded-md">
+                            {member.relationship}
+                          </span>
+                        )}
+                        {ageLabel && (
+                          <span className="text-[10px] text-[#718078] bg-white border border-[#e3eae4] px-1.5 py-0.5 rounded-md">
+                            {ageLabel}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1.5 flex items-center gap-2 text-xs">
+                        {member.isWorking ? (
+                          <span className="font-bold text-[#2c6e43]">
+                            💼 Trabalha • {formatCurrency(member.income || 0)}/mês
+                          </span>
+                        ) : (
+                          <span className="text-[#8a998f]">
+                            Dependente (não trabalha)
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <div className="mt-1.5 flex items-center gap-2 text-xs">
-                      {member.isWorking ? (
-                        <span className="font-bold text-[#2c6e43]">
-                          💼 Trabalha • {formatCurrency(member.income || 0)}/mês
-                        </span>
-                      ) : (
-                        <span className="text-[#8a998f]">
-                          Dependente (não trabalha)
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingMember(member)
+                          setIsFamilyModalOpen(true)
+                        }}
+                        className="grid size-8 place-items-center rounded-xl border border-[#d8e1da] text-[#64736a] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
+                        title="Editar familiar"
+                      >
+                        ✏
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setMemberToDelete(member)}
+                        className="grid size-8 place-items-center rounded-xl border border-[#d8e1da] text-[#a1afa6] hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
+                        title="Remover familiar"
+                      >
+                        ✕
+                      </button>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingMember(member)
-                        setIsFamilyModalOpen(true)
-                      }}
-                      className="grid size-8 place-items-center rounded-xl border border-[#d8e1da] text-[#64736a] hover:bg-[#edf5ef] hover:text-[#173d2a] transition cursor-pointer"
-                      title="Editar familiar"
-                    >
-                      ✏
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setMemberToDelete(member)}
-                      className="grid size-8 place-items-center rounded-xl border border-[#d8e1da] text-[#a1afa6] hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 transition cursor-pointer"
-                      title="Remover familiar"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </section>

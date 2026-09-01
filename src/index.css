@@ -96,3 +96,20 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Scrollbar estilizada */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d8e1da;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a4beae;
+}
+

@@ -31,7 +31,7 @@ import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Profile, Scree
 
 function App() {
   const [profile, setProfile] = useState<Profile | null>(getSavedProfile)
-  const [screen, setScreen] = useState<Screen>(() => (getSavedProfile() ? 'carteira' : 'landing'))
+  const [screen, setScreen] = useState<Screen>(() => (getSavedProfile() ? 'dashboard' : 'landing'))
   const [name, setName] = useState(() => getSavedProfile()?.name ?? '')
   const [email, setEmail] = useState(() => getSavedProfile()?.email ?? '')
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>(getBankAccounts)
@@ -51,13 +51,14 @@ function App() {
       setProfile(nextProfile)
       setName(trimmedName)
       setEmail(trimmedEmail)
-      setScreen('carteira')
+      setScreen('dashboard')
     }
   }
 
   function handleExit() {
-    setProfile(null)
+    setIsQuickCreateOpen(false)
     setScreen('landing')
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }
 
   function handleEnterApp() {
@@ -66,7 +67,7 @@ function App() {
       setProfile(saved)
       setName(saved.name)
       setEmail(saved.email)
-      setScreen('carteira')
+      setScreen('dashboard')
     } else {
       setScreen('login')
     }

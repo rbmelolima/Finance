@@ -22,16 +22,16 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   {
-    id: 'carteira',
-    label: 'Carteira',
-    icon: '💼',
-    description: 'Contas, cartões & teto diário',
-  },
-  {
     id: 'dashboard',
     label: 'Dashboard',
     icon: '📊',
     description: 'Visão geral consolidada',
+  },
+  {
+    id: 'carteira',
+    label: 'Carteira',
+    icon: '💼',
+    description: 'Contas, cartões & teto diário',
   },
   {
     id: 'fixed-costs',
@@ -47,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
   },
   {
     id: 'profile',
-    label: 'Perfil & Dados',
+    label: 'Perfil',
     icon: '👤',
     description: 'Renda, família e backups',
   },
@@ -83,7 +83,7 @@ export function Sidebar({
     <>
       {/* Mobile Top Header */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e3eae4] bg-white/95 px-5 py-3.5 backdrop-blur-md lg:hidden">
-        <Logo onClick={() => onNavigate('carteira')} />
+        <Logo onClick={() => onNavigate('dashboard')} />
 
         <div className="flex items-center gap-2.5">
           {formattedBalance && (
@@ -118,15 +118,15 @@ export function Sidebar({
 
       {/* Sidebar Desktop & Mobile Drawer */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex w-72 flex-col justify-between border-r border-[#e3eae4] bg-white transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex h-full max-h-screen w-72 flex-col border-r border-[#e3eae4] bg-white transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        {/* Top Section */}
-        <div className="flex flex-col p-6">
+        {/* Scrollable Navigation Section */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-6 space-y-5">
           {/* Logo & Mobile Close Button */}
           <div className="flex items-center justify-between">
-            <Logo onClick={() => handleItemClick('carteira')} />
+            <Logo onClick={() => handleItemClick('dashboard')} />
             <button
               type="button"
               onClick={() => setIsMobileOpen(false)}
@@ -141,7 +141,7 @@ export function Sidebar({
           {formattedBalance && (
             <div
               onClick={() => handleItemClick('carteira')}
-              className="mt-6 rounded-2xl border border-[#e3eae4] bg-[#f7f8f5] p-3.5 transition hover:border-[#b7d7c5] hover:bg-[#edf5ef] cursor-pointer"
+              className="rounded-2xl border border-[#e3eae4] bg-[#f7f8f5] p-3.5 transition hover:border-[#b7d7c5] hover:bg-[#edf5ef] cursor-pointer"
             >
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-[#718078]">
@@ -163,7 +163,7 @@ export function Sidebar({
           )}
 
           {/* Navigation Links */}
-          <nav className="mt-6 space-y-1.5">
+          <nav className="space-y-1.5">
             <p className="px-3 text-[11px] font-bold uppercase tracking-wider text-[#8a998f] mb-2">
               Menu Principal
             </p>
@@ -205,11 +205,35 @@ export function Sidebar({
                 </button>
               )
             })}
+
+            {/* Botão Sair ao final do menu principal */}
+            <div className="pt-2 border-t border-[#edf2ee] mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMobileOpen(false)
+                  onExit()
+                }}
+                className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-2xl text-left transition cursor-pointer text-[#64736a] hover:bg-rose-50/80 hover:text-rose-700 group"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="text-lg shrink-0 group-hover:scale-110 transition-transform">🚪</span>
+                  <div className="truncate">
+                    <p className="text-sm font-medium text-[#173d2a] group-hover:text-rose-700">
+                      Sair
+                    </p>
+                    <p className="text-[11px] truncate text-[#8a998f] group-hover:text-rose-600/70">
+                      Ir para a tela inicial
+                    </p>
+                  </div>
+                </div>
+              </button>
+            </div>
           </nav>
         </div>
 
         {/* Bottom User & Exit Section */}
-        <div className="border-t border-[#eef3ef] p-4 bg-[#fafcfb]">
+        <div className="shrink-0 border-t border-[#eef3ef] p-4 bg-[#fafcfb]">
           <div className="flex items-center justify-between gap-3 rounded-2xl p-2.5 bg-white border border-[#e3eae4] hover:border-[#b7d7c5] transition">
             <button
               type="button"

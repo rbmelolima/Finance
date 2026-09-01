@@ -1,7 +1,7 @@
 import { usePrivacy } from '../../context/PrivacyContext'
 import { PrivacyToggle } from '../common/PrivacyToggle'
 import { calculateOverviewTotals, calculatePatrimonioTotals } from '../../services/storage'
-import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Screen } from '../../types/finance'
+import type { BankAccount, Caixinha, CreditCard, FixedCost, PatrimonioData, Screen } from '../../types/finance'
 
 interface DashboardPageProps {
   name: string
@@ -9,6 +9,7 @@ interface DashboardPageProps {
   patrimonio: PatrimonioData
   bankAccounts?: BankAccount[]
   creditCards?: CreditCard[]
+  caixinhas?: Caixinha[]
   onNavigate: (screen: Screen) => void
   onOpenNewFixedCost: () => void
 }
@@ -30,6 +31,7 @@ export function DashboardPage({
   patrimonio,
   bankAccounts = [],
   creditCards = [],
+  caixinhas = [],
   onNavigate,
   onOpenNewFixedCost,
 }: DashboardPageProps) {
@@ -152,7 +154,7 @@ export function DashboardPage({
           </article>
         </div>
 
-        <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
           {/* Card Contas Bancárias */}
           <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
             <div className="flex items-center justify-between">
@@ -176,7 +178,7 @@ export function DashboardPage({
                 onClick={() => onNavigate('carteira')}
                 className="mt-4 inline-flex items-center text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
               >
-                Gerenciar contas e saldos →
+                Gerenciar contas →
               </button>
             </div>
           </article>
@@ -204,13 +206,44 @@ export function DashboardPage({
                 onClick={() => onNavigate('carteira')}
                 className="mt-4 inline-flex items-center text-sm font-semibold text-rose-600 hover:text-rose-800 cursor-pointer"
               >
-                Gerenciar faturas de cartão →
+                Gerenciar faturas →
+              </button>
+            </div>
+          </article>
+
+          {/* Card Caixinhas & Reserva */}
+          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-[#30483a]">Caixinhas & Metas</h2>
+              <button
+                onClick={() => onNavigate('caixinhas')}
+                className="grid size-8 place-items-center rounded-full bg-[#edf5ef] text-lg font-medium text-[#173d2a] transition hover:bg-[#d8e8dc] cursor-pointer"
+                title="Acessar Caixinhas"
+              >
+                →
+              </button>
+            </div>
+            <div className="mt-4">
+              <p className="text-2xl font-bold tracking-tight text-[#173d2a]">
+                {formatCurrency(
+                  (Number(patrimonio.ATIVOS['Ativo Circulante'].Disponibilidades['Reserva de emergência']) || 0) +
+                  caixinhas.reduce((acc, c) => acc + (Number(c.currentAmount) || 0), 0)
+                )}
+              </p>
+              <p className="mt-1 text-xs text-[#718078]">
+                Reserva ({formatCurrency(Number(patrimonio.ATIVOS['Ativo Circulante'].Disponibilidades['Reserva de emergência']) || 0)}) + {caixinhas.length} {caixinhas.length === 1 ? 'meta' : 'metas'}
+              </p>
+              <button
+                onClick={() => onNavigate('caixinhas')}
+                className="mt-4 inline-flex items-center text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
+              >
+                Ver metas e reserva →
               </button>
             </div>
           </article>
 
           {/* Card Custos Fixos Integrado */}
-          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5] md:col-span-2 lg:col-span-1">
+          <article className="rounded-3xl border border-[#dfe8e1] bg-white p-6 shadow-sm transition hover:border-[#b7d7c5]">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-[#30483a]">Custos fixos</h2>
               <button
@@ -240,7 +273,7 @@ export function DashboardPage({
                     <span className="text-xs font-normal text-[#8a998f]"> /mês</span>
                   </p>
                   <p className="text-xs font-semibold text-[#5d9873]">
-                    Custo anual (12m): {formattedYearlyBRL}
+                    Custo anual: {formattedYearlyBRL}
                   </p>
                   {hasUSD && monthlyUSD > 0 && (
                     <p className="pt-1 text-xs font-medium text-[#718078]">
@@ -281,7 +314,7 @@ export function DashboardPage({
                   onClick={() => onNavigate('fixed-costs')}
                   className="mt-4 inline-flex items-center text-sm font-semibold text-[#5d9873] hover:text-[#173d2a] cursor-pointer"
                 >
-                  Ver gráficos e detalhes →
+                  Ver gráficos →
                 </button>
               </div>
             )}

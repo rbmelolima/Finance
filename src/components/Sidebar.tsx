@@ -41,6 +41,12 @@ const NAV_ITEMS: NavItem[] = [
     description: 'Despesas mensais e anuais',
   },
   {
+    id: 'caixinhas',
+    label: 'Caixinhas',
+    icon: '🎯',
+    description: 'Metas & reserva de emergência',
+  },
+  {
     id: 'quanto-custa',
     label: 'Quanto Custa?',
     icon: '⏱️',

@@ -161,6 +161,21 @@ export interface SelicInfo {
   lastUpdated: string
 }
 
+export interface Caixinha {
+  id: string
+  name: string
+  icon?: string // Emoji (ex: 🎯, ✈️, 🚗, 🏠, 💻, 🎓, 💍, 🏖️, 📱, 🛡️)
+  targetAmount: number
+  currentAmount: number
+  deadlineMonth?: number // 1 a 12
+  deadlineYear?: number // Ex: 2027
+  category?: string
+  color?: string
+  notes?: string
+  createdAt: string
+  updatedAt?: string
+}
+
 export interface AppBackupData {
   version: number
   exportedAt: string
@@ -171,6 +186,7 @@ export interface AppBackupData {
   patrimonio: PatrimonioData
   categories: string[]
   simulations?: ProductSimulation[]
+  caixinhas?: Caixinha[]
 }
 
 export type Screen =
@@ -180,6 +196,7 @@ export type Screen =
   | 'overview'
   | 'dashboard'
   | 'fixed-costs'
+  | 'caixinhas'
   | 'patrimonio'
   | 'profile'
   | 'quanto-custa'

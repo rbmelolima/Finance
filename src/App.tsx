@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react'
 import { useState } from 'react'
 
+import { CaixinhasPage } from './components/caixinhas/CaixinhasPage'
 import { DashboardPage } from './components/dashboard/DashboardPage'
 import { FixedCostsPage } from './components/fixed-costs/FixedCostsPage'
 import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
@@ -15,22 +16,26 @@ import { PrivacyProvider } from './context/PrivacyContext'
 import {
   calculateCarteiraTotals,
   deleteBankAccountItem,
+  deleteCaixinhaItem,
   deleteCreditCardItem,
   deleteFixedCostItem,
   getBankAccounts,
+  getCaixinhas,
   getCreditCards,
   getFixedCosts,
   getPatrimonioData,
   getSavedProfile,
   saveBankAccountItem,
+  saveCaixinhaItem,
   saveCreditCardItem,
   saveFixedCostItem,
   savePatrimonioData,
   saveProfile,
   updateBankAccountBalance,
+  updateCaixinhaAmount,
   updateCreditCardInvoice,
 } from './services/storage'
-import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
+import type { BankAccount, Caixinha, CreditCard, FixedCost, PatrimonioData, Profile, Screen } from './types/finance'
 
 function App() {
   const [profile, setProfile] = useState<Profile | null>(getSavedProfile)
@@ -41,6 +46,7 @@ function App() {
   const [creditCards, setCreditCards] = useState<CreditCard[]>(getCreditCards)
   const [fixedCosts, setFixedCosts] = useState<FixedCost[]>(getFixedCosts)
   const [patrimonio, setPatrimonio] = useState<PatrimonioData>(getPatrimonioData)
+  const [caixinhas, setCaixinhas] = useState<Caixinha[]>(getCaixinhas)
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false)
 
   const carteiraTotals = calculateCarteiraTotals(bankAccounts, creditCards)
@@ -118,6 +124,28 @@ function App() {
     setFixedCosts(getFixedCosts())
   }
 
+  function handleSaveCaixinha(caixinha: Omit<Caixinha, 'id' | 'createdAt'> & { id?: string }) {
+    saveCaixinhaItem(caixinha)
+    setCaixinhas(getCaixinhas())
+  }
+
+  function handleDeleteCaixinha(id: string) {
+    deleteCaixinhaItem(id)
+    setCaixinhas(getCaixinhas())
+  }
+
+  function handleUpdateCaixinhaAmount(id: string, newAmount: number) {
+    updateCaixinhaAmount(id, newAmount)
+    setCaixinhas(getCaixinhas())
+  }
+
+  function handleUpdateEmergencyReserve(newAmount: number) {
+    const updatedPatrimonio = JSON.parse(JSON.stringify(patrimonio)) as PatrimonioData
+    updatedPatrimonio.ATIVOS['Ativo Circulante'].Disponibilidades['Reserva de emergência'] = newAmount
+    savePatrimonioData(updatedPatrimonio)
+    setPatrimonio(updatedPatrimonio)
+  }
+
   function handleSavePatrimonio(newData: PatrimonioData) {
     savePatrimonioData(newData)
     setPatrimonio(newData)
@@ -141,6 +169,7 @@ function App() {
     setCreditCards(getCreditCards())
     setFixedCosts(getFixedCosts())
     setPatrimonio(getPatrimonioData())
+    setCaixinhas(getCaixinhas())
   }
 
   function handleAccountReset() {
@@ -148,6 +177,7 @@ function App() {
     setCreditCards(getCreditCards())
     setFixedCosts(getFixedCosts())
     setPatrimonio(getPatrimonioData())
+    setCaixinhas(getCaixinhas())
   }
 
   function handleAccountDeleted() {
@@ -158,6 +188,7 @@ function App() {
     setCreditCards([])
     setFixedCosts([])
     setPatrimonio(getPatrimonioData())
+    setCaixinhas([])
     setScreen('landing')
   }
 
@@ -224,6 +255,7 @@ function App() {
               patrimonio={patrimonio}
               bankAccounts={bankAccounts}
               creditCards={creditCards}
+              caixinhas={caixinhas}
               onNavigate={setScreen}
               onOpenNewFixedCost={() => setIsQuickCreateOpen(true)}
             />
@@ -234,6 +266,18 @@ function App() {
               fixedCosts={fixedCosts}
               onSaveCost={handleSaveCost}
               onDeleteCost={handleDeleteCost}
+            />
+          )}
+
+          {screen === 'caixinhas' && (
+            <CaixinhasPage
+              caixinhas={caixinhas}
+              fixedCosts={fixedCosts}
+              patrimonio={patrimonio}
+              onSaveCaixinha={handleSaveCaixinha}
+              onDeleteCaixinha={handleDeleteCaixinha}
+              onUpdateCaixinhaAmount={handleUpdateCaixinhaAmount}
+              onUpdateEmergencyReserve={handleUpdateEmergencyReserve}
             />
           )}
 

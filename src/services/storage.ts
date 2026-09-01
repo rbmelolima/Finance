@@ -1,6 +1,7 @@
 import type {
   AppBackupData,
   BankAccount,
+  Caixinha,
   CreditCard,
   FixedCost,
   PatrimonioData,
@@ -18,6 +19,7 @@ const BANK_ACCOUNTS_KEY = 'sfp.bank_accounts'
 const CREDIT_CARDS_KEY = 'sfp.credit_cards'
 const SIMULATIONS_KEY = 'sfp.simulations'
 const SELIC_CACHE_KEY = 'sfp.selic_cache'
+const CAIXINHAS_KEY = 'sfp.caixinhas'
 
 
 
@@ -558,6 +560,64 @@ export function getCardTimelineStatus(
 
 export const calculateOverviewTotals = calculateCarteiraTotals
 
+// ---------------- CAIXINHAS & METAS FINANCEIRAS ---------------- //
+
+export function getCaixinhas(): Caixinha[] {
+  const saved = localStorage.getItem(CAIXINHAS_KEY)
+  if (!saved) return []
+  try {
+    const items = JSON.parse(saved) as Caixinha[]
+    return Array.isArray(items) ? items : []
+  } catch {
+    return []
+  }
+}
+
+export function saveCaixinhas(caixinhas: Caixinha[]): void {
+  localStorage.setItem(CAIXINHAS_KEY, JSON.stringify(caixinhas))
+}
+
+export function saveCaixinhaItem(
+  item: Omit<Caixinha, 'id' | 'createdAt'> & { id?: string }
+): Caixinha {
+  const existing = getCaixinhas()
+  const now = new Date().toISOString()
+
+  if (item.id) {
+    const updated = existing.map((c) =>
+      c.id === item.id ? { ...c, ...item, updatedAt: now } : c
+    )
+    saveCaixinhas(updated)
+    return updated.find((c) => c.id === item.id)!
+  } else {
+    const newCaixinha: Caixinha = {
+      ...item,
+      id: crypto.randomUUID
+        ? crypto.randomUUID()
+        : `cax_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: now,
+    }
+    const updated = [newCaixinha, ...existing]
+    saveCaixinhas(updated)
+    return newCaixinha
+  }
+}
+
+export function updateCaixinhaAmount(id: string, newAmount: number): void {
+  const existing = getCaixinhas()
+  const now = new Date().toISOString()
+  const updated = existing.map((c) =>
+    c.id === id ? { ...c, currentAmount: Math.max(0, Number(newAmount) || 0), updatedAt: now } : c
+  )
+  saveCaixinhas(updated)
+}
+
+export function deleteCaixinhaItem(id: string): void {
+  const existing = getCaixinhas()
+  const filtered = existing.filter((c) => c.id !== id)
+  saveCaixinhas(filtered)
+}
+
 // ---------------- GESTÃO DE BACKUP E CONTA ---------------- //
 
 export function exportBackupData(): AppBackupData {
@@ -571,6 +631,7 @@ export function exportBackupData(): AppBackupData {
     patrimonio: getPatrimonioData(),
     categories: getCategories(),
     simulations: getSimulations(),
+    caixinhas: getCaixinhas(),
   }
 }
 
@@ -606,6 +667,10 @@ export function importBackupData(backupData: AppBackupData): void {
   if (Array.isArray(backupData.simulations)) {
     saveSimulations(backupData.simulations)
   }
+
+  if (Array.isArray(backupData.caixinhas)) {
+    saveCaixinhas(backupData.caixinhas)
+  }
 }
 
 export function resetFinancialData(): void {
@@ -615,6 +680,7 @@ export function resetFinancialData(): void {
   savePatrimonioData(DEFAULT_PATRIMONIO)
   saveCategories(DEFAULT_CATEGORIES)
   saveSimulations([])
+  saveCaixinhas([])
 }
 
 export function deleteAllAccountData(): void {
@@ -626,6 +692,7 @@ export function deleteAllAccountData(): void {
   localStorage.removeItem(CREDIT_CARDS_KEY)
   localStorage.removeItem(SIMULATIONS_KEY)
   localStorage.removeItem(SELIC_CACHE_KEY)
+  localStorage.removeItem(CAIXINHAS_KEY)
 }
 
 // ---------------- QUANTO CUSTA? (SIMULAÇÕES & SELIC) ---------------- //

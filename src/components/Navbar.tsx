@@ -48,6 +48,16 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
               Custos Fixos
             </button>
             <button
+              onClick={() => onNavigate('caixinhas')}
+              className={`rounded-xl px-3.5 py-2 text-sm font-medium transition cursor-pointer ${
+                currentScreen === 'caixinhas'
+                  ? 'bg-[#edf5ef] text-[#173d2a] font-semibold'
+                  : 'text-[#64736a] hover:bg-[#f3f6f4] hover:text-[#173d2a]'
+              }`}
+            >
+              Caixinhas
+            </button>
+            <button
               onClick={() => onNavigate('patrimonio')}
               className={`rounded-xl px-3.5 py-2 text-sm font-medium transition cursor-pointer ${
                 currentScreen === 'patrimonio'
@@ -111,6 +121,14 @@ export function Navbar({ currentScreen, onNavigate, userName, onExit }: NavbarPr
           }`}
         >
           Custos Fixos
+        </button>
+        <button
+          onClick={() => onNavigate('caixinhas')}
+          className={`flex-1 py-1.5 px-2 text-center text-xs font-medium whitespace-nowrap ${
+            currentScreen === 'caixinhas' ? 'font-semibold text-[#173d2a]' : 'text-[#64736a]'
+          }`}
+        >
+          Caixinhas
         </button>
         <button
           onClick={() => onNavigate('patrimonio')}

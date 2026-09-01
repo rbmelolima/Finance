@@ -7,6 +7,7 @@ import { FixedCostModal } from './components/fixed-costs/FixedCostModal'
 import { Logo } from './components/Logo'
 import { OverviewPage } from './components/overview/OverviewPage'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
+import { ProfilePage } from './components/profile/ProfilePage'
 import { Sidebar } from './components/Sidebar'
 import {
   calculateCarteiraTotals,
@@ -118,6 +119,44 @@ function App() {
     setPatrimonio(newData)
   }
 
+  function handleSaveProfile(updatedProfile: Profile) {
+    saveProfile(updatedProfile)
+    setProfile(updatedProfile)
+    setName(updatedProfile.name)
+    setEmail(updatedProfile.email)
+  }
+
+  function handleDataRestored() {
+    const freshProfile = getSavedProfile()
+    setProfile(freshProfile)
+    if (freshProfile) {
+      setName(freshProfile.name)
+      setEmail(freshProfile.email)
+    }
+    setBankAccounts(getBankAccounts())
+    setCreditCards(getCreditCards())
+    setFixedCosts(getFixedCosts())
+    setPatrimonio(getPatrimonioData())
+  }
+
+  function handleAccountReset() {
+    setBankAccounts(getBankAccounts())
+    setCreditCards(getCreditCards())
+    setFixedCosts(getFixedCosts())
+    setPatrimonio(getPatrimonioData())
+  }
+
+  function handleAccountDeleted() {
+    setProfile(null)
+    setName('')
+    setEmail('')
+    setBankAccounts([])
+    setCreditCards([])
+    setFixedCosts([])
+    setPatrimonio(getPatrimonioData())
+    setScreen('landing')
+  }
+
 
   // Telas não autenticadas
   if (screen === 'login') {
@@ -197,6 +236,16 @@ function App() {
           <PatrimonioPage
             patrimonio={patrimonio}
             onSavePatrimonio={handleSavePatrimonio}
+          />
+        )}
+
+        {screen === 'profile' && profile && (
+          <ProfilePage
+            profile={profile}
+            onSaveProfile={handleSaveProfile}
+            onDataRestored={handleDataRestored}
+            onAccountReset={handleAccountReset}
+            onAccountDeleted={handleAccountDeleted}
           />
         )}
 

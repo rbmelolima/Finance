@@ -1,4 +1,4 @@
-import type { BankAccount, CreditCard, FixedCost, PatrimonioData, Profile } from '../types/finance'
+import type { AppBackupData, BankAccount, CreditCard, FixedCost, PatrimonioData, Profile } from '../types/finance'
 
 const PROFILE_KEY = 'sfp.profile'
 const FIXED_COSTS_KEY = 'sfp.fixed_costs'
@@ -545,5 +545,64 @@ export function getCardTimelineStatus(
 
 export const calculateOverviewTotals = calculateCarteiraTotals
 
+// ---------------- GESTÃO DE BACKUP E CONTA ---------------- //
 
+export function exportBackupData(): AppBackupData {
+  return {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    profile: getSavedProfile(),
+    bankAccounts: getBankAccounts(),
+    creditCards: getCreditCards(),
+    fixedCosts: getFixedCosts(),
+    patrimonio: getPatrimonioData(),
+    categories: getCategories(),
+  }
+}
 
+export function importBackupData(backupData: AppBackupData): void {
+  if (!backupData || typeof backupData !== 'object') {
+    throw new Error('Arquivo de backup inválido ou corrompido.')
+  }
+
+  if (backupData.profile) {
+    saveProfile(backupData.profile)
+  }
+
+  if (Array.isArray(backupData.bankAccounts)) {
+    saveBankAccounts(backupData.bankAccounts)
+  }
+
+  if (Array.isArray(backupData.creditCards)) {
+    saveCreditCards(backupData.creditCards)
+  }
+
+  if (Array.isArray(backupData.fixedCosts)) {
+    saveFixedCosts(backupData.fixedCosts)
+  }
+
+  if (backupData.patrimonio) {
+    savePatrimonioData(backupData.patrimonio)
+  }
+
+  if (Array.isArray(backupData.categories)) {
+    saveCategories(backupData.categories)
+  }
+}
+
+export function resetFinancialData(): void {
+  saveBankAccounts([])
+  saveCreditCards([])
+  saveFixedCosts([])
+  savePatrimonioData(DEFAULT_PATRIMONIO)
+  saveCategories(DEFAULT_CATEGORIES)
+}
+
+export function deleteAllAccountData(): void {
+  clearProfile()
+  localStorage.removeItem(FIXED_COSTS_KEY)
+  localStorage.removeItem(CATEGORIES_KEY)
+  localStorage.removeItem(PATRIMONIO_KEY)
+  localStorage.removeItem(BANK_ACCOUNTS_KEY)
+  localStorage.removeItem(CREDIT_CARDS_KEY)
+}

@@ -45,6 +45,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: '🏛',
     description: 'Balanço de ativos e passivos',
   },
+  {
+    id: 'profile',
+    label: 'Perfil & Dados',
+    icon: '👤',
+    description: 'Renda, família e backups',
+  },
 ]
 
 export function Sidebar({
@@ -204,8 +210,12 @@ export function Sidebar({
 
         {/* Bottom User & Exit Section */}
         <div className="border-t border-[#eef3ef] p-4 bg-[#fafcfb]">
-          <div className="flex items-center justify-between gap-3 rounded-2xl p-2.5 bg-white border border-[#e3eae4]">
-            <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center justify-between gap-3 rounded-2xl p-2.5 bg-white border border-[#e3eae4] hover:border-[#b7d7c5] transition">
+            <button
+              type="button"
+              onClick={() => handleItemClick('profile')}
+              className="flex items-center gap-2.5 min-w-0 flex-1 text-left cursor-pointer"
+            >
               <div className="grid size-9 place-items-center rounded-xl bg-[#173d2a] text-xs font-bold text-white shrink-0">
                 {userInitial}
               </div>
@@ -217,7 +227,7 @@ export function Sidebar({
                   <p className="text-[10px] text-[#718078] truncate">{userEmail}</p>
                 )}
               </div>
-            </div>
+            </button>
 
             <button
               type="button"

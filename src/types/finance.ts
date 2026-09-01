@@ -95,10 +95,43 @@ export interface CreditCard {
   updatedAt?: string
 }
 
-export type Screen = 'landing' | 'login' | 'carteira' | 'overview' | 'dashboard' | 'fixed-costs' | 'patrimonio'
+export interface FamilyMember {
+  id: string
+  name: string
+  age?: number
+  relationship?: string
+  isWorking: boolean
+  income?: number
+  createdAt?: string
+}
 
 export interface Profile {
   name: string
   email: string
+  personalIncome?: number
+  isCLT?: boolean
+  paymentDay?: number
+  familyMembers?: FamilyMember[]
+  updatedAt?: string
 }
 
+export interface AppBackupData {
+  version: number
+  exportedAt: string
+  profile: Profile | null
+  bankAccounts: BankAccount[]
+  creditCards: CreditCard[]
+  fixedCosts: FixedCost[]
+  patrimonio: PatrimonioData
+  categories: string[]
+}
+
+export type Screen =
+  | 'landing'
+  | 'login'
+  | 'carteira'
+  | 'overview'
+  | 'dashboard'
+  | 'fixed-costs'
+  | 'patrimonio'
+  | 'profile'

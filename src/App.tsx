@@ -8,7 +8,9 @@ import { Logo } from './components/Logo'
 import { OverviewPage } from './components/overview/OverviewPage'
 import { PatrimonioPage } from './components/patrimonio/PatrimonioPage'
 import { ProfilePage } from './components/profile/ProfilePage'
+import { QuantoCustaPage } from './components/quanto-custa/QuantoCustaPage'
 import { Sidebar } from './components/Sidebar'
+
 import {
   calculateCarteiraTotals,
   deleteBankAccountItem,
@@ -233,12 +235,21 @@ function App() {
           />
         )}
 
+        {screen === 'quanto-custa' && (
+          <QuantoCustaPage
+            profile={profile}
+            fixedCosts={fixedCosts}
+            onSaveProfile={handleSaveProfile}
+          />
+        )}
+
         {screen === 'patrimonio' && (
           <PatrimonioPage
             patrimonio={patrimonio}
             onSavePatrimonio={handleSavePatrimonio}
           />
         )}
+
 
         {screen === 'profile' && profile && (
           <ProfilePage

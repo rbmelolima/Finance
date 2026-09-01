@@ -278,7 +278,36 @@ export function DashboardPage({
             )}
           </article>
         </div>
+
+        {/* Banner / Atalho Quanto Custa? */}
+        <div className="mt-8 overflow-hidden rounded-3xl border border-[#d8e5dc] bg-gradient-to-r from-[#173d2a] to-[#245439] p-6 sm:p-7 text-white shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
+          <div className="flex items-start gap-4">
+            <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-2xl">
+              ⏱️
+            </span>
+            <div>
+              <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-400/20 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-200">
+                <span>Novo</span> • Simulador de Compras
+              </div>
+              <h2 className="mt-1 text-lg sm:text-xl font-bold">
+                Quanto Custa? Descubra o preço em horas da sua vida
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-[#b7d7c5] max-w-xl">
+                Saiba exatamente quantas horas de trabalho e de esforço livre você precisa trocar por qualquer produto, e veja o rendimento se investisse no CDI.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => onNavigate('quanto-custa')}
+            className="rounded-2xl bg-white px-5 py-3 text-sm font-bold text-[#173d2a] hover:bg-[#edf5ef] transition cursor-pointer shadow-md shrink-0 w-full sm:w-auto text-center"
+          >
+            Simular compra agora →
+          </button>
+        </div>
       </div>
     </main>
   )
 }
+

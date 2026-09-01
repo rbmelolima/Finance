@@ -125,11 +125,40 @@ export interface Profile {
   name: string
   email: string
   personalIncome?: number
+  workHoursPerMonth?: number // Ex: 160h, 220h
   isCLT?: boolean
   cltConfig?: CLTConfig
   paymentDay?: number // para regime PJ / Outro
   familyMembers?: FamilyMember[]
   updatedAt?: string
+}
+
+export interface ProductSimulation {
+  id: string
+  name: string
+  price: number
+  grossHours: number
+  netFreeHours: number
+  monthlySalary: number
+  workHoursPerMonth: number
+  fixedCostsAmount: number
+  freeBalanceAmount: number
+  selicRate: number
+  yield1Month: number
+  yield6Months: number
+  yield1Year: number
+  createdAt: string
+}
+
+export interface SelicApiResponse {
+  data: string
+  valor: string
+}
+
+export interface SelicInfo {
+  rateAnnual: number // Ex: 14.00
+  rateDate: string // Ex: "16/09/2026"
+  lastUpdated: string
 }
 
 export interface AppBackupData {
@@ -141,6 +170,7 @@ export interface AppBackupData {
   fixedCosts: FixedCost[]
   patrimonio: PatrimonioData
   categories: string[]
+  simulations?: ProductSimulation[]
 }
 
 export type Screen =
@@ -152,3 +182,5 @@ export type Screen =
   | 'fixed-costs'
   | 'patrimonio'
   | 'profile'
+  | 'quanto-custa'
+

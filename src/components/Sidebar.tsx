@@ -40,6 +40,12 @@ const NAV_ITEMS: NavItem[] = [
     description: 'Despesas mensais e anuais',
   },
   {
+    id: 'quanto-custa',
+    label: 'Quanto Custa?',
+    icon: '⏱️',
+    description: 'Tempo de trabalho & CDI',
+  },
+  {
     id: 'patrimonio',
     label: 'Patrimônio',
     icon: '🏛',
@@ -52,6 +58,7 @@ const NAV_ITEMS: NavItem[] = [
     description: 'Renda, família e backups',
   },
 ]
+
 
 export function Sidebar({
   currentScreen,

@@ -1,4 +1,14 @@
-import type { AppBackupData, BankAccount, CreditCard, FixedCost, PatrimonioData, Profile } from '../types/finance'
+import type {
+  AppBackupData,
+  BankAccount,
+  CreditCard,
+  FixedCost,
+  PatrimonioData,
+  ProductSimulation,
+  Profile,
+  SelicApiResponse,
+  SelicInfo,
+} from '../types/finance'
 
 const PROFILE_KEY = 'sfp.profile'
 const FIXED_COSTS_KEY = 'sfp.fixed_costs'
@@ -6,6 +16,9 @@ const CATEGORIES_KEY = 'sfp.categories'
 const PATRIMONIO_KEY = 'sfp.patrimonio'
 const BANK_ACCOUNTS_KEY = 'sfp.bank_accounts'
 const CREDIT_CARDS_KEY = 'sfp.credit_cards'
+const SIMULATIONS_KEY = 'sfp.simulations'
+const SELIC_CACHE_KEY = 'sfp.selic_cache'
+
 
 
 export const DEFAULT_CATEGORIES = [
@@ -557,6 +570,7 @@ export function exportBackupData(): AppBackupData {
     fixedCosts: getFixedCosts(),
     patrimonio: getPatrimonioData(),
     categories: getCategories(),
+    simulations: getSimulations(),
   }
 }
 
@@ -588,6 +602,10 @@ export function importBackupData(backupData: AppBackupData): void {
   if (Array.isArray(backupData.categories)) {
     saveCategories(backupData.categories)
   }
+
+  if (Array.isArray(backupData.simulations)) {
+    saveSimulations(backupData.simulations)
+  }
 }
 
 export function resetFinancialData(): void {
@@ -596,6 +614,7 @@ export function resetFinancialData(): void {
   saveFixedCosts([])
   savePatrimonioData(DEFAULT_PATRIMONIO)
   saveCategories(DEFAULT_CATEGORIES)
+  saveSimulations([])
 }
 
 export function deleteAllAccountData(): void {
@@ -605,4 +624,149 @@ export function deleteAllAccountData(): void {
   localStorage.removeItem(PATRIMONIO_KEY)
   localStorage.removeItem(BANK_ACCOUNTS_KEY)
   localStorage.removeItem(CREDIT_CARDS_KEY)
+  localStorage.removeItem(SIMULATIONS_KEY)
+  localStorage.removeItem(SELIC_CACHE_KEY)
 }
+
+// ---------------- QUANTO CUSTA? (SIMULAÇÕES & SELIC) ---------------- //
+
+export function getSimulations(): ProductSimulation[] {
+  const saved = localStorage.getItem(SIMULATIONS_KEY)
+  if (!saved) return []
+  try {
+    const items = JSON.parse(saved) as ProductSimulation[]
+    return Array.isArray(items) ? items : []
+  } catch {
+    return []
+  }
+}
+
+export function saveSimulations(items: ProductSimulation[]): void {
+  localStorage.setItem(SIMULATIONS_KEY, JSON.stringify(items))
+}
+
+export function saveSimulationItem(
+  item: Omit<ProductSimulation, 'id' | 'createdAt'> & { id?: string }
+): ProductSimulation {
+  const existing = getSimulations()
+  const now = new Date().toISOString()
+
+  if (item.id) {
+    const updated = existing.map((sim) => (sim.id === item.id ? { ...sim, ...item } : sim))
+    saveSimulations(updated)
+    return updated.find((sim) => sim.id === item.id)!
+  } else {
+    const newSim: ProductSimulation = {
+      ...item,
+      id: crypto.randomUUID
+        ? crypto.randomUUID()
+        : `sim_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: now,
+    }
+    const updated = [newSim, ...existing].slice(0, 30) // Mantém as últimas 30 simulações
+    saveSimulations(updated)
+    return newSim
+  }
+}
+
+export function deleteSimulationItem(id: string): void {
+  const existing = getSimulations()
+  const filtered = existing.filter((sim) => sim.id !== id)
+  saveSimulations(filtered)
+}
+
+export function clearSimulations(): void {
+  saveSimulations([])
+}
+
+export async function fetchSelicRate(): Promise<SelicInfo> {
+  const fallbackSelic: SelicInfo = {
+    rateAnnual: 10.5,
+    rateDate: '01/09/2026',
+    lastUpdated: new Date().toISOString(),
+  }
+
+  // Tenta ler do cache se tiver menos de 4 horas
+  const cached = localStorage.getItem(SELIC_CACHE_KEY)
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as SelicInfo
+      const ageMs = Date.now() - new Date(parsed.lastUpdated).getTime()
+      if (ageMs < 4 * 60 * 60 * 1000 && parsed.rateAnnual > 0) {
+        return parsed
+      }
+    } catch {
+      // Ignora erro no cache
+    }
+  }
+
+  try {
+    const response = await fetch(
+      'https://api.bcb.gov.br/dados/serie/bcdata.sgs.432/dados/ultimos/1?formato=json',
+      { method: 'GET', headers: { Accept: 'application/json' } }
+    )
+
+    if (!response.ok) {
+      throw new Error(`Erro na API do BCB: ${response.statusText}`)
+    }
+
+    const data = (await response.json()) as SelicApiResponse[]
+    if (Array.isArray(data) && data.length > 0 && data[0].valor) {
+      const rawValor = String(data[0].valor).replace(',', '.')
+      const numRate = parseFloat(rawValor)
+      if (!isNaN(numRate) && numRate > 0) {
+        const selicInfo: SelicInfo = {
+          rateAnnual: numRate,
+          rateDate: data[0].data || new Date().toLocaleDateString('pt-BR'),
+          lastUpdated: new Date().toISOString(),
+        }
+        localStorage.setItem(SELIC_CACHE_KEY, JSON.stringify(selicInfo))
+        return selicInfo
+      }
+    }
+  } catch (err) {
+    console.warn('Não foi possível obter a taxa Selic em tempo real da API do BCB:', err)
+  }
+
+  if (cached) {
+    try {
+      return JSON.parse(cached) as SelicInfo
+    } catch {
+      // continua para fallback
+    }
+  }
+
+  return fallbackSelic
+}
+
+export function calculateCdiYields(amount: number, selicAnnualPercent: number) {
+  const safeAmount = Math.max(0, amount)
+  const safeSelic = Math.max(0, selicAnnualPercent)
+
+  // 100% CDI é historicamente próximo de (Selic Meta - 0.10%)
+  const cdiAnnualRate = Math.max(0, safeSelic - 0.1) / 100
+  // Taxa mensal equivalente a partir da taxa anual composta: (1 + i_ano)^(1/12) - 1
+  const cdiMonthlyRate = Math.pow(1 + cdiAnnualRate, 1 / 12) - 1
+
+  // Rendimento bruto (apenas o lucro)
+  const yield1Month = safeAmount * (Math.pow(1 + cdiMonthlyRate, 1) - 1)
+  const yield6Months = safeAmount * (Math.pow(1 + cdiMonthlyRate, 6) - 1)
+  const yield1Year = safeAmount * cdiAnnualRate
+
+  // Montante total bruto acumulado
+  const total1Month = safeAmount + yield1Month
+  const total6Months = safeAmount + yield6Months
+  const total1Year = safeAmount + yield1Year
+
+  return {
+    cdiAnnualPercent: Math.max(0, safeSelic - 0.1),
+    monthlyRatePercent: cdiMonthlyRate * 100,
+    yield1Month,
+    yield6Months,
+    yield1Year,
+    total1Month,
+    total6Months,
+    total1Year,
+  }
+}
+
